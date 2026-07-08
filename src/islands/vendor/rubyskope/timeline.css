@@ -1,0 +1,211 @@
+/*
+ *= require_self
+ */
+
+/* Timeline Toggle (highway/waterfall) ------------------------------------ */
+
+.rs-tl-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--rs-bg-elevated);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-md);
+}
+
+.rs-tl-toggle__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--rs-radius-sm);
+  cursor: pointer;
+  transition: var(--rs-transition);
+}
+
+.rs-tl-toggle__btn:hover {
+  background: var(--rs-bg-input);
+  border-color: var(--rs-border);
+}
+
+.rs-tl-toggle__btn.is-active {
+  background: var(--rs-bg-base);
+  border-color: var(--rs-border-bright);
+}
+
+/* Waterfall View --------------------------------------------------------- */
+
+.rs-wf {
+  position: relative;
+  padding: 16px 16px 16px 28px;
+  background: var(--rs-bg-surface);
+  border: 1px solid var(--rs-border);
+  border-radius: var(--rs-radius-lg);
+  min-height: 240px;
+}
+
+.rs-wf--loading,
+.rs-wf--error,
+.rs-wf--empty {
+  color: var(--rs-text-secondary);
+  font-family: 'Inter', sans-serif;
+  padding: 24px;
+  text-align: center;
+}
+
+.rs-wf--error { color: var(--rs-red); }
+
+.rs-wf__rail {
+  position: absolute;
+  top: 16px;
+  bottom: 60px;
+  /* Rail center sits at exactly column1-center (15px) so every node
+   * lines up with it regardless of row count or zoom. */
+  left: 14px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--rs-border-bright), var(--rs-border));
+  border-radius: 1px;
+}
+
+.rs-wf__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rs-wf__row {
+  /* Grid keeps the node column at a fixed width so all rows align on a
+   * single vertical axis with the rail (rail center = node center). */
+  display: grid;
+  grid-template-columns: 30px auto 1fr;
+  align-items: center;
+  position: relative;
+}
+
+.rs-wf__node {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  justify-self: center;
+  box-shadow: 0 0 0 3px var(--rs-bg-surface);
+  padding: 0;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.rs-wf__node:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px var(--rs-bg-surface), 0 0 0 5px var(--rs-border-bright);
+}
+
+.rs-wf-connector {
+  margin: 0 6px;
+}
+
+.rs-wf__card {
+  text-align: left;
+  background: var(--rs-bg-elevated);
+  border: 1px solid var(--rs-border);
+  border-left-width: 3px;
+  border-radius: var(--rs-radius-md);
+  padding: 10px 12px;
+  color: var(--rs-text-primary);
+  cursor: pointer;
+  transition: var(--rs-transition);
+}
+
+.rs-wf__card:hover {
+  border-color: var(--rs-border-bright);
+  background: var(--rs-bg-base);
+}
+
+.rs-wf__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.rs-wf__kind {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rs-wf__time {
+  color: var(--rs-text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.rs-wf__title {
+  color: var(--rs-text-primary);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+
+.rs-wf__meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--rs-text-secondary);
+}
+
+.rs-wf__method {
+  background: var(--rs-bg-base);
+  border: 1px solid var(--rs-border);
+  padding: 1px 6px;
+  border-radius: var(--rs-radius-sm);
+}
+
+.rs-wf__path {
+  word-break: break-all;
+}
+
+.rs-wf__status { color: var(--rs-text-muted); }
+
+.rs-wf__legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--rs-border);
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--rs-text-secondary);
+}
+
+.rs-wf__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rs-wf__legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Stack card below node when viewport narrow; hide arrow */
+@media (max-width: 768px) {
+  .rs-wf__rail { display: none; }
+  .rs-wf__row { flex-direction: column; align-items: stretch; }
+  .rs-wf__node { margin-left: 0; align-self: flex-start; }
+  .rs-wf-connector { display: none; }
+}
