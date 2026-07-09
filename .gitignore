@@ -2,3 +2,13 @@ node_modules
 dist
 
 *.webm
+
+.playwright-mcp
+/*.png
+
+# local reference / plan material — kept out of the repo
+docs/
+*.mp4
+*.gif
+*_refer.*
+Srinivas_K_Resume_*.pdf

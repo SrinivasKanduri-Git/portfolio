@@ -34,7 +34,7 @@ const THEMES = [
   { name: 'neonarc', start: 26.3, end: 41.8, poster: 28.0 },
 ];
 
-const SCALE = 'scale=1600:-2'; // web-quality, even height, preserves 2:1 aspect
+const SCALE = 'scale=1850:-2'; // native source width, even height, preserves 2:1 aspect
 
 const run = (args) => execFileSync(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'inherit'] });
 
@@ -49,7 +49,7 @@ for (const { name, start, end, poster } of THEMES) {
     '-y', '-ss', String(start), '-i', SRC, '-t', dur,
     '-vf', `${SCALE},format=yuv420p`,
     '-an',
-    '-c:v', 'libx264', '-profile:v', 'high', '-crf', '20', '-preset', 'slow',
+    '-c:v', 'libx264', '-profile:v', 'high', '-crf', '18', '-preset', 'slow',
     '-movflags', '+faststart',
     mp4,
   ]);

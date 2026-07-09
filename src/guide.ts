@@ -1,11 +1,9 @@
 /**
- * The crew: a stick figure in the page corner that answers questions by
- * holding up a hand-lettered placard. No chat log, no bubbles, no persona.
- * Pure local intent matching with a strict relevance threshold — anything
- * off-topic gets a plain refusal and a redirect.
+ * The crew: a glass command palette in the page corner that answers questions
+ * on a placard. No chat log, no bubbles, no persona. Pure local intent
+ * matching with a strict relevance threshold — anything off-topic gets a
+ * plain refusal and a redirect.
  */
-
-import { figure, IDLE, PRESENT } from './figures';
 
 type Card = {
   keys: string[];
@@ -180,11 +178,6 @@ export function initGuide(reduceMotion: boolean): void {
   const tagsEl = document.getElementById('crew-tags')!;
   const form = document.getElementById('crew-form') as HTMLFormElement;
   const input = document.getElementById('crew-input') as HTMLInputElement;
-  const figIdle = document.getElementById('crew-fig-idle')!;
-  const figUp = document.getElementById('crew-fig-up')!;
-
-  figIdle.innerHTML = `<svg viewBox="0 0 80 120" aria-hidden="true">${figure(IDLE)}</svg>`;
-  figUp.innerHTML = `<svg viewBox="0 0 80 120" aria-hidden="true">${figure(PRESENT)}</svg>`;
 
   let timer = 0;
 
