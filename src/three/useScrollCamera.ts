@@ -29,8 +29,11 @@ export function useScrollCamera() {
     tmpPos.y += Math.sin(t * 0.51) * 0.012 + Math.sin(t * 0.173 + 2) * 0.008;
     tmpPos.x += Math.sin(t * 0.379 + 1) * 0.01;
     tmpTgt.y += Math.sin(t * 0.443 + 3) * 0.006;
-    // frame-rate-independent damping — snappier than a fixed lerp, no jank
-    const k = 1 - Math.pow(0.0016, delta);
+    // frame-rate-independent damping. Lenis already smooths scrollY, so the
+    // camera only needs a light second pass — a tighter constant (was 0.0016)
+    // ~doubles the follow speed so the dolly locks to the scroll instead of
+    // trailing it (the old "floaty" feel), while staying jitter-free.
+    const k = 1 - Math.pow(0.000001, delta);
     camera.position.lerp(tmpPos, k);
     curTgt.lerp(tmpTgt, k);
     camera.lookAt(curTgt);

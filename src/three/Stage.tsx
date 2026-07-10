@@ -3,9 +3,32 @@ import { AdaptiveDpr, Environment, Lightformer, MeshReflectorMaterial } from '@r
 import { PCFSoftShadowMap } from 'three';
 import { EffectComposer, Bloom, Vignette, DepthOfField, Noise } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { QualityCtx, type Quality } from './cinema';
 import { Rig } from './useScrollCamera';
+
+/**
+ * Pause the render loop when the fixed WebGL canvas is fully covered by the
+ * opaque flat content below `#cinematic-end` (credits, equipment, papers, …).
+ * Below the cinematic zone the scene is invisible AND the camera can't move
+ * (scroll progress is clamped to 1), so every rendered frame there is pure
+ * waste — shadow maps, reflector, DoF and bloom for pixels nobody sees.
+ * Returns 'always' while any cinematic content is on screen, 'never' otherwise.
+ */
+function useRenderVisible(): 'always' | 'never' {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const end = document.getElementById('cinematic-end');
+    if (!end) return; // marker not mounted yet — stay always-on (safe default)
+    const io = new IntersectionObserver(
+      ([e]) => setVisible(e.isIntersecting || e.boundingClientRect.top > 0),
+      { rootMargin: '240px 0px 0px 0px' }, // resume a touch before it re-enters
+    );
+    io.observe(end);
+    return () => io.disconnect();
+  }, []);
+  return visible ? 'always' : 'never';
+}
 
 /**
  * The stage floor — one continuous slab of polished black under every set, so
@@ -24,11 +47,14 @@ function StageFloor({ lite }: { lite: boolean }) {
           color="#0b0d14"
           roughness={0.55}
           metalness={0.45}
-          resolution={1024}
+          // the planar reflector re-renders the scene into an off-screen target
+          // every frame — 512 is half the memory/fill of 1024 and, this blurred,
+          // visually indistinguishable in the pooled floor reflection
+          resolution={512}
           mirror={0.24}
-          mixBlur={9}
+          mixBlur={6}
           mixStrength={1.1}
-          blur={[380, 120]}
+          blur={[256, 96]}
           depthScale={0.9}
           minDepthThreshold={0.5}
           maxDepthThreshold={1.6}
@@ -61,11 +87,16 @@ function StudioEnv() {
 
 export function Stage({ children, quality = 'full' }: { children?: ReactNode; quality?: Quality }) {
   const lite = quality === 'lite';
+  const frameloop = useRenderVisible();
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
       <Canvas
+        frameloop={frameloop}
         shadows={!lite}
-        dpr={lite ? [1, 1.5] : [1, 1.75]}
+        // keep full device resolution for crisp edges on retina/zoom — the
+        // render-gate + smaller shadow maps + lighter reflector already bought
+        // back the frame budget, so we don't need to soften pixels to stay fast
+        dpr={lite ? [1, 1.75] : [1, 2]}
         camera={{ position: [6, 1.5, 12], fov: 42 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => {
@@ -82,7 +113,10 @@ export function Stage({ children, quality = 'full' }: { children?: ReactNode; qu
         <QualityCtx.Provider value={quality}>{children}</QualityCtx.Provider>
 
         <Rig />
-        <AdaptiveDpr pixelated />
+        {/* AdaptiveDpr without `pixelated`: if it ever needs to drop resolution
+            under load it does so with a smooth filter, never a blocky
+            nearest-neighbour rescale — so the sign never looks pixelated */}
+        <AdaptiveDpr />
         {!lite && (
           <EffectComposer>
             {/* subjects sit ~5.2–8 units from the dolly — focus there, gentle falloff */}

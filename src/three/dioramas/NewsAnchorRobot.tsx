@@ -466,7 +466,7 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
       {/* ── STUDIO LIGHTING — unified soundstage rig: one warm volumetric key
           from high stage-right (local coords!), gentle fills, no hot specular
           parked on the face ── */}
-      <KeyBeam position={[2.6, 5.7, 3]} target={[0, 1.1, 0.4]} intensity={115} color="#ffe9d2" mapSize={2048} angle={0.46} volumetric={0.06} />
+      <KeyBeam position={[2.6, 5.7, 3]} target={[0, 1.1, 0.4]} intensity={115} color="#ffe9d2" mapSize={1024} angle={0.46} volumetric={0.06} />
       {/* soft front fill (the "camera light") — low, wide, cool */}
       <pointLight position={[-0.4, 2.2, 4.2]} color="#e8f0ff" intensity={11} distance={12} />
       {/* cool rim for the shell and shoulders */}

@@ -184,7 +184,7 @@ export function BugScope({ position = [-2, 0, 0] }: { position?: [number, number
   return (
     <group position={position}>
       {/* unified rig: warm volumetric key high stage-right, cool fill, red practical */}
-      <KeyBeam position={[2.6, 5.8, 3.4]} target={[0, 0.8, 0]} intensity={68} mapSize={2048} angle={0.42} volumetric={0.06} />
+      <KeyBeam position={[2.6, 5.8, 3.4]} target={[0, 0.8, 0]} intensity={68} mapSize={1024} angle={0.42} volumetric={0.06} />
       <pointLight position={[-1.6, 2.2, 2.6]} color="#9db8e8" intensity={8} distance={11} />
       {/* the ruby's own red glow — behind the gem so it can't torch the copper rim */}
       <pointLight position={[-0.3, 1.44, -0.9]} color={RUBY} intensity={1.1} distance={3.4} decay={2} />

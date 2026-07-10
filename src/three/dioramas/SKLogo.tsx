@@ -146,7 +146,7 @@ export function SKLogo({ position = [0, 0, 0] }: { position?: [number, number, n
     <group position={position}>
       {/* neon-first lighting: one dim warm key for shadows and dust, the rest
           of the light is the sign itself (spill + fill) — no gloss rig */}
-      <KeyBeam position={[2.4, 5.6, 3.2]} target={[0, SIGN_Y, 0]} intensity={70} mapSize={2048} angle={0.42} volumetric={0.06} />
+      <KeyBeam position={[2.4, 5.6, 3.2]} target={[0, SIGN_Y, 0]} intensity={70} mapSize={1024} angle={0.42} volumetric={0.06} />
       <pointLight position={[2.6, 1.4, 2.2]} color="#9cc8ff" intensity={6} distance={10} />
       {/* the sign's own blue/red spill pooling on the stage floor */}
       <pointLight ref={spill} position={[0, 1.4, 1.3]} color="#7f9fff" intensity={7} distance={5.5} decay={1.8} />
