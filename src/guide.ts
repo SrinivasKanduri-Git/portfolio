@@ -119,7 +119,7 @@ const CARDS: Card[] = [
       A('mailto:srinivaskanduri03@gmail.com', 'srinivaskanduri03@gmail.com') +
       ' · +91 63056 89291 · ' +
       A('https://github.com/SrinivasKanduri-Git', 'GitHub') + ' · ' +
-      A('https://linkedin.com/in/srinivas-kanduri', 'LinkedIn') +
+      A('https://linkedin.com/in/srinivas-kanduri-47658b250', 'LinkedIn') +
       '. Open to backend, AI-assisted engineering and DevOps-leaning roles.',
     tags: ['projects', 'skills', 'experience'],
   },

@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { ContactShadows, MeshReflectorMaterial, RoundedBox } from '@react-three/drei';
+import { ContactShadows, RoundedBox } from '@react-three/drei';
 import {
   CanvasTexture,
   ExtrudeGeometry,
@@ -13,10 +13,9 @@ import {
   type Mesh,
   type MeshStandardMaterial,
 } from 'three';
-import { KeyBeam } from '../Stage';
+import { Dust, KeyBeam, makeBrushedMap } from '../cinema';
 
 // AI Reporter — palette matched to the robot_reporter.png reference plate.
-const SHELL = '#c9cdd4'; // polished body metal
 const GUNMETAL = '#5a5f67';
 const EYE = '#ffd83d';
 const ORANGE = '#ff5f00';
@@ -196,8 +195,37 @@ function makeTickerTexture(): CanvasTexture {
   return tex;
 }
 
+/** the ON AIR sign face — neon letters in a dark box, glow burned in */
+function makeOnAirTexture(): CanvasTexture {
+  const cv = document.createElement('canvas');
+  cv.width = 512;
+  cv.height = 160;
+  const g = cv.getContext('2d')!;
+  g.fillStyle = '#140609';
+  g.fillRect(0, 0, 512, 160);
+  g.strokeStyle = 'rgba(255,80,80,0.55)';
+  g.lineWidth = 5;
+  g.strokeRect(12, 12, 488, 136);
+  g.font = '900 88px "Archivo", "Arial Black", sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.shadowColor = '#ff2030';
+  g.shadowBlur = 32;
+  g.fillStyle = '#ff4b4b';
+  g.fillText('ON AIR', 256, 86);
+  g.shadowBlur = 10;
+  g.fillStyle = '#ffe2e2';
+  g.fillText('ON AIR', 256, 86);
+  const tex = new CanvasTexture(cv);
+  tex.colorSpace = SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 /** polished shell material props, shared by every body panel so the build reads as one */
-const shellProps = { color: SHELL, roughness: 0.16, metalness: 0.85, clearcoat: 1, clearcoatRoughness: 0.12 } as const;
+// satin machine finish, not mirror chrome — the polished shell was blowing out
+// under the key + environment reflections
+const shellProps = { color: '#b4b9c1', roughness: 0.34, metalness: 0.75, clearcoat: 0.4, clearcoatRoughness: 0.3 } as const;
 const jointProps = { color: GUNMETAL, roughness: 0.28, metalness: 0.95, clearcoat: 0.4 } as const;
 const glassProps = { color: '#0b0e13', roughness: 0.09, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.07 } as const;
 
@@ -253,6 +281,72 @@ function Hinge({ at, prev, next, r }: { at: [number, number, number]; prev: [num
   );
 }
 
+/** a plain matte boom pole between two points (no chrome, no seam rings) */
+function BoomPole({ from, to, r0, r1 }: { from: [number, number, number]; to: [number, number, number]; r0: number; r1: number }) {
+  const { pos, quat, len } = useMemo(() => {
+    const a = new Vector3(...from);
+    const b = new Vector3(...to);
+    const d = b.clone().sub(a);
+    const len = d.length();
+    const quat = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d.clone().normalize());
+    return { pos: a.clone().add(b).multiplyScalar(0.5), quat, len };
+  }, [from, to]);
+  return (
+    <group position={pos} quaternion={quat}>
+      <mesh castShadow>
+        <cylinderGeometry args={[r1, r0, len, 16]} />
+        <meshStandardMaterial color="#23262c" roughness={0.45} metalness={0.85} />
+      </mesh>
+      {/* twist-lock collars along the pole, like a real telescopic boom */}
+      {[-0.28, 0.06].map((f) => (
+        <mesh key={f} position={[0, len * f, 0]}>
+          <cylinderGeometry args={[r0 * 1.25, r0 * 1.25, 0.05, 14]} />
+          <meshStandardMaterial color="#15181d" roughness={0.5} metalness={0.8} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** shotgun mic in a shockmount, long axis aligned to `dir` (toward the head) */
+function AimedMic({ dir }: { dir: [number, number, number] }) {
+  const quat = useMemo(
+    () => new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(...dir).normalize()),
+    [dir],
+  );
+  return (
+    <group quaternion={quat}>
+      {/* shockmount cradle: two rings bridged by rails */}
+      {[0.1, 0.3].map((y) => (
+        <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.075, 0.011, 10, 28]} />
+          <meshStandardMaterial color="#2a2e34" roughness={0.4} metalness={0.9} />
+        </mesh>
+      ))}
+      {[0.9, 2.1, 3.3, 4.5].map((a) => (
+        <mesh key={a} position={[Math.cos(a) * 0.075, 0.2, Math.sin(a) * 0.075]}>
+          <cylinderGeometry args={[0.006, 0.006, 0.2, 8]} />
+          <meshStandardMaterial color="#15181d" roughness={0.5} metalness={0.8} />
+        </mesh>
+      ))}
+      {/* mic body + foam windscreen nose */}
+      <mesh position={[0, 0.16, 0]} castShadow>
+        <cylinderGeometry args={[0.032, 0.032, 0.34, 16]} />
+        <meshStandardMaterial color="#1b1e23" roughness={0.35} metalness={0.85} />
+      </mesh>
+      <mesh position={[0, 0.42, 0]} castShadow>
+        <capsuleGeometry args={[0.055, 0.16, 6, 16]} />
+        <meshStandardMaterial color="#26292f" roughness={1} metalness={0} />
+      </mesh>
+      {/* cable tail looping off the back */}
+      <mesh position={[0, -0.04, 0.02]} rotation={[0.5, 0, 0]}>
+        <torusGeometry args={[0.05, 0.007, 8, 20, 4.2]} />
+        <meshStandardMaterial color="#0f1114" roughness={0.7} metalness={0.2} />
+      </mesh>
+    </group>
+  );
+}
+
 // arm anchors (mirrored by s): shoulder inside the pod → elbow low near the desk
 // → wrist beside the held paper. Limbs/hinges are built point-to-point from
 // these, so every joint lines up by construction.
@@ -280,6 +374,8 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
   const deskScreenMat = useRef<MeshStandardMaterial>(null);
   const fingers = useRef<(Group | null)[]>([]); // 0–3 left hand, 4–7 right hand
   const paper = useRef<Group>(null);
+  const boom = useRef<Group>(null);
+  const onAir = useRef<MeshStandardMaterial>(null);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
@@ -315,6 +411,9 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
     // headline crawl slides right-to-left inside the screen bezel
     tickerTex.offset.x = (t * 0.014) % 1;
     if (deskScreenMat.current) deskScreenMat.current.emissiveIntensity = 1.1 + Math.sin(t * 1.8) * 0.15;
+    // boom mic drifts on its arm; the ON AIR sign hums with a faint mains flicker
+    if (boom.current) boom.current.rotation.z = Math.sin(t * 0.4) * 0.02;
+    if (onAir.current) onAir.current.emissiveIntensity = 1.05 + Math.sin(t * 2.7) * 0.08 + (Math.sin(t * 31) > 0.98 ? -0.2 : 0);
   });
 
   const screenTex = useMemo(makeScreenTexture, []);
@@ -327,6 +426,8 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
     return t;
   }, [screenTex]);
   const tickerTex = useMemo(makeTickerTexture, []);
+  const onAirTex = useMemo(makeOnAirTexture, []);
+  const brushed = useMemo(() => makeBrushedMap(3), []);
 
   // the sheet the robot reads — bold NEWS masthead over grey body copy
   const paperTex = useMemo(() => {
@@ -362,35 +463,23 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
 
   return (
     <group position={position} scale={1.05}>
-      {/* ── STUDIO LIGHTING — natural broadcast rig: one soft high key, gentle
-          fills, no hot specular parked on the face ── */}
-      <KeyBeam position={[position[0] + 2.6, 6, 3]} target={[position[0], 1.1, 0.4]} intensity={220} color="#fff4e6" mapSize={2048} radius={6} />
+      {/* ── STUDIO LIGHTING — unified soundstage rig: one warm volumetric key
+          from high stage-right (local coords!), gentle fills, no hot specular
+          parked on the face ── */}
+      <KeyBeam position={[2.6, 5.7, 3]} target={[0, 1.1, 0.4]} intensity={115} color="#ffe9d2" mapSize={2048} angle={0.46} volumetric={0.06} />
       {/* soft front fill (the "camera light") — low, wide, cool */}
-      <pointLight position={[-0.4, 2.2, 4.2]} color="#e8f0ff" intensity={18} distance={12} />
+      <pointLight position={[-0.4, 2.2, 4.2]} color="#e8f0ff" intensity={11} distance={12} />
       {/* cool rim for the shell and shoulders */}
-      <pointLight position={[-2.4, 2.7, 1]} color="#8fb4ff" intensity={22} distance={10} />
+      <pointLight position={[-2.4, 2.7, 1]} color="#8fb4ff" intensity={14} distance={10} />
       {/* studio blue bounce off the console */}
       <pointLight position={[0, 2.2, -0.6]} color="#3d7ae0" intensity={12} distance={8} />
       {/* orange desk-light bounce, like the plate */}
       <pointLight position={[0, 0.9, 1.4]} color={ORANGE} intensity={5} distance={3.5} />
 
+      {/* studio haze — dust motes hanging in the key and over the console */}
+      <Dust position={[0.8, 2.4, 1.4]} scale={[5.5, 3.6, 3.6]} count={50} opacity={0.18} />
+
       {/* ── STUDIO SET ── */}
-      {/* glossy studio floor with real reflections */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0.4]}>
-        <planeGeometry args={[7.5, 5.4]} />
-        <MeshReflectorMaterial
-          color="#0e1a30"
-          roughness={0.35}
-          metalness={0.5}
-          resolution={512}
-          mirror={0.45}
-          mixBlur={6}
-          mixStrength={1.6}
-          blur={[280, 120]}
-          depthScale={0.6}
-          minDepthThreshold={0.6}
-        />
-      </mesh>
       {/* grounding shadow under the whole set */}
       <ContactShadows position={[0, 0.012, 0.7]} scale={7} far={2.4} blur={2.6} opacity={0.62} frames={1} />
 
@@ -452,11 +541,13 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
         <planeGeometry args={[5.5, 0.05]} />
         <meshStandardMaterial color={ORANGE} emissive={ORANGE} emissiveIntensity={1.2} toneMapped={false} />
       </mesh>
-      {/* cool vertical light tubes in the far corners, studio depth cue */}
+      {/* cool vertical light tubes in the far corners, studio depth cue —
+          tone-mapped and dim so they never bloom into a bright stream as the
+          dolly sweeps past between sets */}
       {[-1, 1].map((s) => (
         <mesh key={s} position={[s * 4.7, 1.7, -1.4]}>
           <boxGeometry args={[0.05, 3.2, 0.05]} />
-          <meshStandardMaterial color="#cfe2ff" emissive="#bcd8ff" emissiveIntensity={1.4} toneMapped={false} />
+          <meshStandardMaterial color="#cfe2ff" emissive="#bcd8ff" emissiveIntensity={0.5} />
         </mesh>
       ))}
       {/* white ceiling ring — the curved studio halo */}
@@ -465,11 +556,46 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
         <meshStandardMaterial color="#e8ecf2" emissive="#dfe7f2" emissiveIntensity={1.1} roughness={0.4} toneMapped={false} />
       </mesh>
 
+      {/* ── STUDIO PROPS — the apparatus of a real broadcast floor ── */}
+      {/* ON AIR sign hung over the console on two rods */}
+      <group position={[0, 3.42, -1.05]}>
+        {[-0.42, 0.42].map((x) => (
+          <mesh key={x} position={[x, 0.34, 0]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.5, 8]} />
+            <meshStandardMaterial color="#3c4046" roughness={0.45} metalness={0.9} />
+          </mesh>
+        ))}
+        <RoundedBox args={[1.14, 0.38, 0.1]} radius={0.02} smoothness={3} castShadow>
+          <meshPhysicalMaterial color="#15171d" roughness={0.4} metalness={0.85} />
+        </RoundedBox>
+        <mesh position={[0, 0, 0.052]}>
+          <planeGeometry args={[1.06, 0.32]} />
+          <meshStandardMaterial ref={onAir} map={onAirTex} emissive="#ffffff" emissiveMap={onAirTex} emissiveIntensity={1.25} toneMapped={false} roughness={0.5} />
+        </mesh>
+        {/* the sign's red spill on the console below */}
+        <pointLight position={[0, -0.3, 0.3]} color="#ff3040" intensity={3.5} distance={2.6} decay={1.8} />
+      </group>
+
+      {/* boom mic reaching in from upper stage-left — pole, shockmount and a
+          foam-screened shotgun mic aimed square at the anchor's head. Built
+          point-to-point (like the arms) so the rig can't float apart. */}
+      <group ref={boom} position={[-3.6, 3.6, 1.4]}>
+        <BoomPole from={[0, 0, 0]} to={[3.05, -0.85, -0.9]} r0={0.03} r1={0.021} />
+        {/* pole coupler at the tip */}
+        <group position={[3.05, -0.85, -0.9]}>
+          <mesh>
+            <sphereGeometry args={[0.045, 16, 16]} />
+            <meshStandardMaterial color="#2a2e34" roughness={0.35} metalness={0.9} />
+          </mesh>
+          <AimedMic dir={[0.55, -0.93, -0.45]} />
+        </group>
+      </group>
+
       {/* ── ANCHOR DESK — glossy grey slab, hot-orange edge, blue inset screen ── */}
       <group position={[0, 0, 0.62]}>
         {/* main top (extruded flat, rounded front corners) */}
         <mesh geometry={deskTopGeo} position={[0, 0.545, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
-          <meshPhysicalMaterial color="#b9bec6" roughness={0.22} metalness={0.35} clearcoat={0.9} clearcoatRoughness={0.18} />
+          <meshPhysicalMaterial color="#b9bec6" roughness={0.24} roughnessMap={brushed} metalness={0.35} clearcoat={0.9} clearcoatRoughness={0.18} />
         </mesh>
         {/* neon trim framing the top edge */}
         <mesh geometry={deskTrimGeo} position={[0, 0.625, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -622,7 +748,7 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
         <group ref={paper} position={[0, 0.95, 0.7]} rotation={[-0.3, 0, 0]}>
           <mesh castShadow>
             <planeGeometry args={[0.52, 0.42]} />
-            <meshStandardMaterial map={paperTex} color="#d9d5cb" roughness={0.95} side={2} />
+            <meshStandardMaterial map={paperTex} color="#c4bfb2" roughness={0.95} side={2} />
           </mesh>
           {/* faint second sheet behind, slightly fanned */}
           <mesh position={[0.015, -0.008, -0.004]} rotation={[0, 0, 0.05]}>

@@ -39,7 +39,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; background: var(--stage); }
+/* no scroll-behavior:smooth — Lenis owns scrolling; native smooth double-eases
+   anchor jumps and desyncs the camera */
+html { background: var(--stage); }
 
 body {
   background: transparent; /* the fixed WebGL canvas shows through */

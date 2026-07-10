@@ -1,20 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { innerRingArcs, K_BODY, polySvgPath, RING_INNER, RING_OUTER, S_BOT, S_TOP } from '../brand/skMark';
+import { innerRingSegments, K_BODY, polySvgPath, RING_OUTER, S_BOT, S_TOP } from '../brand/skMark';
 
 const CX = 100;
 const CY = 100;
 const R = 86; // unit → viewBox scale, leaves margin for the glow
-
-/** stroked arc along a ring's centreline between two unit-space angles (deg, y up) */
-function arcPath(r: number, a0: number, a1: number): string {
-  const p = (a: number) => [CX + r * R * Math.cos((a * Math.PI) / 180), CY - r * R * Math.sin((a * Math.PI) / 180)];
-  const [x0, y0] = p(a0);
-  const [x1, y1] = p(a1);
-  const large = a1 - a0 > 180 ? 1 : 0;
-  const rr = (r * R).toFixed(2);
-  return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${rr} ${rr} 0 ${large} 0 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
-}
 
 /**
  * The SK monogram — the SVG twin of the 3D sign on stage, generated from the
@@ -25,8 +15,7 @@ function arcPath(r: number, a0: number, a1: number): string {
 function GlossMark({ gRing, gK, gS }: { gRing: React.Ref<SVGGElement>; gK: React.Ref<SVGGElement>; gS: React.Ref<SVGGElement> }) {
   const ringMid = (RING_OUTER.rOut + RING_OUTER.rIn) / 2;
   const ringW = (RING_OUTER.rOut - RING_OUTER.rIn) * R;
-  const innerMid = (RING_INNER.rOut + RING_INNER.rIn) / 2;
-  const innerW = (RING_INNER.rOut - RING_INNER.rIn) * R;
+  const innerFill = innerRingSegments().map((p) => polySvgPath(p, CX, CY, R)).join('');
   const kFill = polySvgPath(K_BODY, CX, CY, R);
   const sFill = [S_TOP, S_BOT].map((p) => polySvgPath(p, CX, CY, R)).join('');
 
@@ -49,10 +38,9 @@ function GlossMark({ gRing, gK, gS }: { gRing: React.Ref<SVGGElement>; gK: React
       <g>
         <g ref={gRing}>
           <circle cx={CX} cy={CY} r={ringMid * R} fill="none" stroke="url(#skBlue)" strokeWidth={ringW} />
-          {/* inner ring: arcs between the letter cuts, like the source */}
-          {innerRingArcs().map(([a0, a1]) => (
-            <path key={a0} d={arcPath(innerMid, a0, a1)} fill="none" stroke="url(#skBlue)" strokeWidth={innerW} />
-          ))}
+          {/* inner ring: filled segments, angular-cut where the letters cross it */}
+          <path d={innerFill} fill="url(#skBlue)" />
+          {/* the middle line merges straight into the inner ring — no cut top or bottom */}
         </g>
         <g ref={gK}>
           <path d={kFill} fill="url(#skBlue)" stroke="#052a66" strokeWidth="0.5" />

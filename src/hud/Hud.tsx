@@ -3,7 +3,7 @@ import { initGuide } from '../guide';
 import { Docucaine } from './Docucaine';
 
 const GITHUB = 'https://github.com/SrinivasKanduri-Git';
-const LINKEDIN = 'https://linkedin.com/in/srinivas-kanduri';
+const LINKEDIN = 'https://linkedin.com/in/srinivas-kanduri-47658b250';
 
 /** Tiny robot head that matches the SC.01 news-anchor bot — the crew's face. */
 function CrewBot() {
@@ -165,7 +165,7 @@ export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
                 decision is his.
               </p>
               <ul className="shotlist">
-                <li>FastAPI backend, Next.js 14 frontend, deployed on Oracle Cloud free tier.</li>
+                <li>FastAPI backend, Next.js 14 frontend.</li>
                 <li>Semantic search on pgvector/Supabase with multilingual sentence-transformer embeddings.</li>
                 <li>Groq as the primary LLM in the pipeline.</li>
               </ul>

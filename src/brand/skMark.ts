@@ -29,31 +29,101 @@ export const SK = {
 export const RING_OUTER = { rOut: 1.0, rIn: 0.9649 } as const;
 export const RING_INNER = { rOut: 0.9017, rIn: 0.85 } as const;
 
+const D2R = Math.PI / 180;
+const INNER_MID = (RING_INNER.rOut + RING_INNER.rIn) / 2;
+
 /**
- * The inner circle is CUT where the letters pass through it (visible in the
- * source): the K stem top/bottom, both K arms and the S's bottom stroke break
- * the ring, their tips ending inside the cleared gap. Angles in degrees,
- * measured at the ring's centreline; `half` is the angular half-width of each cut.
+ * The inner circle is CUT only where the K arms and the S's bottom stroke pass
+ * through it (visible in the source). The K stem does NOT cut the ring — the
+ * middle line merges straight into the circle with no gap. Every cut is ANGULAR:
+ * the ring's end faces run PARALLEL to the crossing stroke's edges, leaving a
+ * uniform dark slot beside the letter — never a blunt radial chop.
+ *
+ * a   = ring angle (deg) where the stroke crosses the centreline,
+ * phi = the stroke's direction (deg), so the faces slant to match it,
+ * w   = half-slot: half the stroke width plus the visible dark gap.
  */
-export const INNER_RING_CUTS: { a: number; half: number }[] = [
-  { a: 89.8, half: 5.9 }, // K stem, top
-  { a: -90.2, half: 5.9 }, // K stem, bottom
-  { a: 34.0, half: 5.8 }, // K upper arm
-  { a: -33.7, half: 5.8 }, // K lower arm
-  { a: -145.5, half: 5.7 }, // S bottom stroke
+export type RingCrossing = { a: number; phi: number; w: number };
+export const RING_CROSSINGS: RingCrossing[] = [
+  { a: 34.0, phi: 37.0, w: 0.09 }, // K upper arm
+  { a: -33.7, phi: -34.3, w: 0.09 }, // K lower arm
+  { a: -145.5, phi: -152.0, w: 0.082 }, // S bottom stroke
 ];
 
-/** the visible arcs of the inner ring: [startDeg, endDeg] sweeps between cuts */
-export function innerRingArcs(): [number, number][] {
-  const cuts = [...INNER_RING_CUTS].sort((p, q) => p.a - q.a);
-  const arcs: [number, number][] = [];
-  for (let i = 0; i < cuts.length; i++) {
-    const from = cuts[i].a + cuts[i].half;
-    const next = cuts[(i + 1) % cuts.length];
-    const to = i === cuts.length - 1 ? next.a - next.half + 360 : next.a - next.half;
-    if (to > from) arcs.push([from, to]);
+/** intersection of the line (p + t·d) with the circle r=r, root nearest angle a (deg) */
+function lineCircle(p: P2, d: P2, r: number, aDeg: number): P2 {
+  const A = d[0] * d[0] + d[1] * d[1];
+  const B = 2 * (p[0] * d[0] + p[1] * d[1]);
+  const C = p[0] * p[0] + p[1] * p[1] - r * r;
+  const s = Math.sqrt(Math.max(0, B * B - 4 * A * C));
+  const cand: P2[] = [
+    [p[0] + ((-B + s) / (2 * A)) * d[0], p[1] + ((-B + s) / (2 * A)) * d[1]],
+    [p[0] + ((-B - s) / (2 * A)) * d[0], p[1] + ((-B - s) / (2 * A)) * d[1]],
+  ];
+  const target = ((aDeg % 360) + 360) % 360;
+  const off = (q: P2) => {
+    const a = ((Math.atan2(q[1], q[0]) / D2R) % 360 + 360) % 360;
+    const dd = Math.abs(a - target);
+    return Math.min(dd, 360 - dd);
+  };
+  return off(cand[0]) <= off(cand[1]) ? cand[0] : cand[1];
+}
+
+type Face = { a: number; outer: P2; inner: P2 };
+
+/** the two angular ring-end faces one crossing carves, ordered low→high angle */
+function crossingFaces(c: RingCrossing): [Face, Face] {
+  const cc: P2 = [INNER_MID * Math.cos(c.a * D2R), INNER_MID * Math.sin(c.a * D2R)];
+  const dir: P2 = [Math.cos(c.phi * D2R), Math.sin(c.phi * D2R)];
+  const nrm: P2 = [-Math.sin(c.phi * D2R), Math.cos(c.phi * D2R)];
+  const faces = [1, -1].map((sgn): Face => {
+    const p: P2 = [cc[0] + nrm[0] * c.w * sgn, cc[1] + nrm[1] * c.w * sgn];
+    const outer = lineCircle(p, dir, RING_INNER.rOut, c.a);
+    const inner = lineCircle(p, dir, RING_INNER.rIn, c.a);
+    const a = Math.atan2((outer[1] + inner[1]) / 2, (outer[0] + inner[0]) / 2) / D2R;
+    return { a, outer, inner };
+  });
+  return faces[0].a <= faces[1].a ? [faces[0], faces[1]] : [faces[1], faces[0]];
+}
+
+/** points of an arc r=r from a0→a1 (deg, CCW if a1>a0), ~2° tessellation */
+function arcPts(r: number, a0: number, a1: number): P2[] {
+  const n = Math.max(2, Math.ceil(Math.abs(a1 - a0) / 2));
+  const out: P2[] = [];
+  for (let i = 0; i <= n; i++) {
+    const a = (a0 + ((a1 - a0) * i) / n) * D2R;
+    out.push([r * Math.cos(a), r * Math.sin(a)]);
   }
-  return arcs;
+  return out;
+}
+
+/**
+ * The visible inner-ring arcs as filled polygons. Each segment runs from one
+ * crossing's trailing (high-angle) face to the next crossing's leading
+ * (low-angle) face; the two straight end faces are the angular cuts.
+ */
+export function innerRingSegments(): P2[][] {
+  const bounds: Face[] = [];
+  for (const c of RING_CROSSINGS) bounds.push(...crossingFaces(c));
+  bounds.sort((p, q) => p.a - q.a); // → lo,hi, lo,hi, lo,hi
+  const segs: P2[][] = [];
+  for (let i = 1; i < bounds.length; i += 2) {
+    const start = bounds[i]; // a trailing (high) face
+    const end = bounds[(i + 1) % bounds.length]; // next leading (low) face
+    const ang = (q: P2) => Math.atan2(q[1], q[0]) / D2R;
+    const a0o = ang(start.outer);
+    let a1o = ang(end.outer);
+    while (a1o <= a0o) a1o += 360;
+    const a0i = ang(start.inner);
+    let a1i = ang(end.inner);
+    while (a1i <= a0i) a1i += 360;
+    const poly: P2[] = [
+      ...arcPts(RING_INNER.rOut, a0o, a1o), // outer edge, CCW: start.outer → end.outer
+      ...arcPts(RING_INNER.rIn, a1i, a0i), // straight face → then inner edge CW back to start.inner
+    ];
+    segs.push(poly);
+  }
+  return segs;
 }
 
 /**
@@ -64,16 +134,16 @@ export function innerRingArcs(): [number, number][] {
  */
 export const K_BODY: P2[] = [
   [+0.1501, -0.0192],
-  [+0.7774, +0.4536],
-  [+0.7098, +0.5533],
+  [+0.7788, +0.4544], // upper arm tip — flush on the inner ring (r=rOut), completes the circle
+  [+0.7111, +0.5543], // upper arm tip, inner side
   [+0.058, +0.0619],
   [+0.058, +0.9],
   [-0.065, +0.9],
   [-0.065, -0.9],
   [+0.058, -0.9],
   [+0.058, -0.0986],
-  [+0.7144, -0.5473],
-  [+0.7797, -0.4495],
+  [+0.7157, -0.5483], // lower arm tip, inner side
+  [+0.7811, -0.4503], // lower arm tip — flush on the inner ring (r=rOut), completes the circle
 ];
 
 /**
@@ -97,14 +167,17 @@ export const S_BOT: P2[] = [
   [-0.4627, +0.3782], // head tip, top
   [-0.1335, -0.0973], // right fold outer, top
   [-0.157, -0.2523], // right fold outer, bottom
-  [-0.697, -0.5388], // bottom tip, lower
-  [-0.6689, -0.4127], // bottom tip, upper
+  [-0.7501, -0.5668], // bottom tip, lower — pokes through the ring (dagger cut)
+  [-0.7189, -0.4407], // bottom tip, upper
   [-0.2124, -0.1705], // fold inner
   [-0.4935, +0.2355], // head tip, bottom
 ];
 
-/** polygon inset (positive d = inward) with clamped miter joins */
-export function insetPoly(pts: P2[], d: number): P2[] {
+/** polygon inset (positive d = inward) with clamped miter joins.
+ *  `miterFloor` caps the spike at sharp corners: offset ≤ d / miterFloor —
+ *  raise it toward 1 for thin strokes with dagger tips so the inset can never
+ *  cross the opposite edge and fold the polygon into a bowtie. */
+export function insetPoly(pts: P2[], d: number, miterFloor = 0.35): P2[] {
   const n = pts.length;
   let area = 0;
   for (let i = 0; i < n; i++) {
@@ -125,7 +198,7 @@ export function insetPoly(pts: P2[], d: number): P2[] {
     const n1: P2 = [-e1[1] * sign, e1[0] * sign];
     const n2: P2 = [-e2[1] * sign, e2[0] * sign];
     const bis = norm([n1[0] + n2[0], n1[1] + n2[1]]);
-    const cosHalf = Math.max(0.35, Math.sqrt(Math.max(0, (1 + (n1[0] * n2[0] + n1[1] * n2[1])) / 2)));
+    const cosHalf = Math.max(miterFloor, Math.sqrt(Math.max(0, (1 + (n1[0] * n2[0] + n1[1] * n2[1])) / 2)));
     return [p[0] + (bis[0] * d) / cosHalf, p[1] + (bis[1] * d) / cosHalf];
   });
 }
