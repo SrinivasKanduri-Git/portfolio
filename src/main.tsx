@@ -7,6 +7,8 @@ import '@fontsource/public-sans/600.css';
 import './styles.css';
 
 import { createRoot } from 'react-dom/client';
+import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 import { App } from './App';
 import { initSmoothScroll } from './scroll/lenisGsap';
 import { detectTier } from './capabilities';
@@ -18,6 +20,11 @@ window.scrollTo(0, 0);
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const tier = detectTier();
+
+// Vercel page-view analytics + real-user performance metrics (no-ops in dev;
+// this is a plain Vite SPA, so the framework-agnostic inject() path is the one)
+inject();
+injectSpeedInsights();
 
 const root = document.getElementById('root');
 if (root) {

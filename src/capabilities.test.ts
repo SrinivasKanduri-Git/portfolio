@@ -17,10 +17,20 @@ describe('detectTier', () => {
   it('returns fallback when no WebGL', () => {
     expect(detectTier(fakeWin({ webgl: false }))).toBe('fallback');
   });
-  it('returns fallback on small viewport', () => {
-    expect(detectTier(fakeWin({ width: 600 }))).toBe('fallback');
+  it('returns lite on small viewport (mobile keeps the 3D stage)', () => {
+    expect(detectTier(fakeWin({ width: 600 }))).toBe('lite');
   });
   it('returns full on a capable desktop', () => {
     expect(detectTier(fakeWin({}))).toBe('full');
+  });
+  it('returns lite on a wide desktop with a software rasteriser (no real GPU)', () => {
+    expect(detectTier(fakeWin({ __weakGPU: true }))).toBe('lite');
+  });
+  it('returns full on a wide desktop with a real GPU', () => {
+    expect(detectTier(fakeWin({ __weakGPU: false }))).toBe('full');
+  });
+  it('honours the ?tier= QA override', () => {
+    expect(detectTier(fakeWin({ location: { search: '?tier=lite' } }))).toBe('lite');
+    expect(detectTier(fakeWin({ location: { search: '?tier=full' }, reduced: true }))).toBe('full');
   });
 });

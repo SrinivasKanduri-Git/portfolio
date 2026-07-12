@@ -84,19 +84,31 @@ export function CurtainIntro({ onDone, skip }: { onDone: () => void; skip: boole
       setGone(true);
       onDone();
     };
-    // paused: the 3D stage compiles its shaders during the first frames — start
-    // the choreography two RAFs later so it never animates through that hitch
+    // paused: the Scene3D module eval and the stage's first-frame texture
+    // uploads are 200–350ms main-thread stalls — any tween running through
+    // them stutters. Hide the slate NOW (so nothing flashes while we hold),
+    // then start the choreography when the stage reports real frames on
+    // screen ('stage-first-frame'), with a timer fallback for the fallback/
+    // lite paths where that event never fires.
     const t = gsap.timeline({ onComplete: finish, paused: true });
-    let raf = requestAnimationFrame(() => {
+    gsap.set([gRing.current, gK.current, gS.current], { opacity: 0 });
+    gsap.set(slate.current, { opacity: 0 });
+    let raf = 0;
+    const begin = () => {
       raf = requestAnimationFrame(() => t.play());
-    });
+    };
+    const timer = window.setTimeout(begin, 1800);
+    const onReady = () => {
+      clearTimeout(timer);
+      begin();
+    };
+    window.addEventListener('stage-first-frame', onReady, { once: true });
     tl.current = t;
     // the mark assembles: the wrapper (a composited HTML div, not the SVG) scales
     // up so vector geometry is never re-rasterised per frame; the ring and letters
     // fade in on staggered opacity only — one smooth build, no stutter, no glow
-    t.set([gRing.current, gK.current, gS.current], { opacity: 0 })
-      .set(markWrap.current, { scale: 0.9, transformOrigin: '50% 50%' })
-      .from(slate.current, { opacity: 0, y: 18, duration: 0.55, ease: 'power3.out' })
+    t.set(markWrap.current, { scale: 0.9, transformOrigin: '50% 50%' })
+      .fromTo(slate.current, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, ease: 'power3.out' })
       .to(markWrap.current, { scale: 1, duration: 0.9, ease: 'power3.out' }, 0.35)
       .to(gRing.current, { opacity: 1, duration: 0.7, ease: 'power2.out' }, 0.4)
       .to(gK.current, { opacity: 1, duration: 0.6, ease: 'power2.out' }, 0.68)
@@ -109,6 +121,8 @@ export function CurtainIntro({ onDone, skip }: { onDone: () => void; skip: boole
       .to(right.current, { xPercent: 100, duration: 1.15, ease: 'power3.inOut' }, '<')
       .to(root.current, { opacity: 0, duration: 0.45, ease: 'power1.out' }, '-=0.4');
     return () => {
+      window.removeEventListener('stage-first-frame', onReady);
+      clearTimeout(timer);
       cancelAnimationFrame(raf);
       t.kill();
     };
@@ -129,7 +143,9 @@ export function CurtainIntro({ onDone, skip }: { onDone: () => void; skip: boole
       <div ref={right} className="curtain-panel curtain-right" />
       <div className="curtain-bar curtain-bar-top" />
       <div className="curtain-bar curtain-bar-bottom" />
-      <div ref={slate} className="curtain-slate">
+      {/* hidden inline from the very first paint — the timeline holds until the
+          3D stage has frames up, and nothing may flash during that hold */}
+      <div ref={slate} className="curtain-slate" style={{ opacity: 0 }}>
         <div ref={markWrap} className="neon-mark-wrap"><GlossMark gRing={gRing} gK={gK} gS={gS} /></div>
         <div ref={clap} className="clap-bar" />
         <span className="clap-prod">PROD. 001</span>

@@ -11,7 +11,7 @@ import {
   type MeshBasicMaterial,
   type MeshStandardMaterial,
 } from 'three';
-import { Dust, GlowPlane, KeyBeam, makeRadialGlow } from '../cinema';
+import { Dust, GlowPlane, makeRadialGlow, useSetActive, useSetLights } from '../cinema';
 
 const VIOLET = '#7c5cff';
 // format tags — one per supported family (nods to the theme accents too)
@@ -236,7 +236,19 @@ export function SpatialCanvas({ position = [-5, 0, 0] }: { position?: [number, n
     [],
   );
 
+  // faint warm key + violet key from high behind (light only, cones off) on
+  // the shared stage rig — this set's light IS the violet
+  useSetLights(position[0], () => ({
+    key: { position: [2.5, 6, 3.6], target: [0, 1.2, 0], intensity: 40, angle: 0.46, volumetric: 0 },
+    spot2: { position: [-0.4, 6.2, -1.6], target: [0, 1.3, 0], intensity: 55, color: '#8f6bff', angle: 0.4 },
+    points: [
+      { position: [0, 1.4, 1.6], color: VIOLET, intensity: 9, distance: 8 },
+      { position: [0, 2.6, 2.6], color: '#cfd8ee', intensity: 6, distance: 9 },
+    ],
+  }));
+  const setActive = useSetActive();
   useFrame((state) => {
+    if (!setActive) return;
     const t = state.clock.elapsedTime;
     const cycle = (t % CYCLE) / CYCLE;
     const beat = Math.floor(t / CYCLE);
@@ -322,14 +334,6 @@ export function SpatialCanvas({ position = [-5, 0, 0] }: { position?: [number, n
 
   return (
     <group position={position}>
-      {/* unified rig: warm key kept faint here — this set's light IS the violet */}
-      <KeyBeam position={[2.5, 6, 3.6]} target={[0, 1.2, 0]} intensity={40} angle={0.46} volumetric={0} />
-      {/* violet key from high behind — visible cone OFF: through the empty frame
-          it read as a hard straight light-stream down the middle. Light only. */}
-      <KeyBeam position={[-0.4, 6.2, -1.6]} target={[0, 1.3, 0]} intensity={55} color="#8f6bff" angle={0.4} volumetric={0} mapSize={1024} />
-      <pointLight position={[0, 1.4, 1.6]} color={VIOLET} intensity={9} distance={8} />
-      <pointLight position={[0, 2.6, 2.6]} color="#cfd8ee" intensity={6} distance={9} />
-
       <Dust position={[0, 1.9, 0.6]} scale={[4.6, 3.2, 3]} count={40} color="#cabdff" size={0.95} opacity={0.14} />
 
       {/* violet drafting grid printed on the shared floor + pooled glow */}

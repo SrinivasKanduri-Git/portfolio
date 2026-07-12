@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { cameraPath } from '../scroll/cameraPath';
@@ -15,11 +16,29 @@ const curTgt = new Vector3(0, 1.78, 0);
  */
 export function useScrollCamera() {
   const { camera, clock } = useThree();
+  // The cinematic zone height is measured once (and on any layout change via
+  // ResizeObserver), not per frame: reading offsetTop inside the frame loop
+  // forces a synchronous layout whenever styles are dirty — e.g. during every
+  // HUD reveal transition — which is exactly when the dolly must stay smooth.
+  const zoneRef = useRef(1);
+  useEffect(() => {
+    const measure = () => {
+      const end = document.getElementById('cinematic-end');
+      zoneRef.current = end ? end.offsetTop - window.innerHeight : document.documentElement.scrollHeight - window.innerHeight;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
   useFrame((_, delta) => {
     // Progress spans only the cinematic zone (hero → end of SC.03), so the
     // resume/flat content below doesn't squeeze the dolly.
-    const end = document.getElementById('cinematic-end');
-    const zone = end ? end.offsetTop - window.innerHeight : document.documentElement.scrollHeight - window.innerHeight;
+    const zone = zoneRef.current;
     const p = zone > 0 ? window.scrollY / zone : 0;
     const { pos, target } = cameraPath(p);
     tmpPos.set(pos[0], pos[1], pos[2]);

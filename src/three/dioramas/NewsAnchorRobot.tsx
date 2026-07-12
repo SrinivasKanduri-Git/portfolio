@@ -13,7 +13,7 @@ import {
   type Mesh,
   type MeshStandardMaterial,
 } from 'three';
-import { Dust, KeyBeam, makeBrushedMap } from '../cinema';
+import { Dust, makeBrushedMap, useSetActive, useSetLights } from '../cinema';
 
 // AI Reporter — palette matched to the robot_reporter.png reference plate.
 const GUNMETAL = '#5a5f67';
@@ -173,19 +173,22 @@ const TICKER_H = 0.26;
 
 function makeTickerTexture(): CanvasTexture {
   const probe = document.createElement('canvas').getContext('2d')!;
-  const font = '900 92px "Archivo", "Arial Black", sans-serif';
+  // 46px (not 92): the full crawl at 92px is ~20k px wide, past the 16384
+  // GPU max — three was CPU-downscaling a 10MB canvas at startup. The strip
+  // renders ~26 CSS px tall, so a 64px-tall texture is already oversampled.
+  const font = '900 46px "Archivo", "Arial Black", sans-serif';
   probe.font = font;
   const textW = Math.ceil(probe.measureText(HEADLINES).width);
   const cv = document.createElement('canvas');
   cv.width = textW;
-  cv.height = 128;
+  cv.height = 64;
   const g = cv.getContext('2d')!;
   g.fillStyle = ORANGE;
   g.fillRect(0, 0, cv.width, cv.height);
   g.fillStyle = '#190b01';
   g.font = font;
   g.textBaseline = 'middle';
-  g.fillText(HEADLINES, 0, cv.height / 2 + 5);
+  g.fillText(HEADLINES, 0, cv.height / 2 + 2.5);
   const tex = new CanvasTexture(cv);
   tex.colorSpace = SRGBColorSpace;
   tex.wrapS = RepeatWrapping;
@@ -377,7 +380,27 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
   const boom = useRef<Group>(null);
   const onAir = useRef<MeshStandardMaterial>(null);
 
+  // studio plan on the shared stage rig: warm volumetric key from high
+  // stage-right, gentle fills, no hot specular parked on the face. The whole
+  // set renders at scale 1.05, so light positions are pre-scaled here.
+  useSetLights(position[0], () => ({
+    key: { position: [2.73, 5.985, 3.15], target: [0, 1.155, 0.42], intensity: 115, color: '#ffe9d2', angle: 0.46, volumetric: 0.06 },
+    points: [
+      // soft front fill (the "camera light") — low, wide, cool
+      { position: [-0.42, 2.31, 4.41], color: '#e8f0ff', intensity: 11, distance: 12 },
+      // cool rim for the shell and shoulders
+      { position: [-2.52, 2.835, 1.05], color: '#8fb4ff', intensity: 14, distance: 10 },
+      // studio blue bounce off the console
+      { position: [0, 2.31, -0.63], color: '#3d7ae0', intensity: 12, distance: 8 },
+      // orange desk-light bounce, like the plate
+      { position: [0, 0.945, 1.47], color: ORANGE, intensity: 5, distance: 3.5 },
+      // the ON AIR sign's red spill on the console below it
+      { position: [0, 3.276, -0.7875], color: '#ff3040', intensity: 3.5, distance: 2.6, decay: 1.8 },
+    ],
+  }));
+  const setActive = useSetActive();
   useFrame((state) => {
+    if (!setActive) return;
     const t = state.clock.elapsedTime;
     // breathing — the whole upper body (arms, hands and paper included) rises
     // and settles together, with a slow idle sway
@@ -463,19 +486,6 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
 
   return (
     <group position={position} scale={1.05}>
-      {/* ── STUDIO LIGHTING — unified soundstage rig: one warm volumetric key
-          from high stage-right (local coords!), gentle fills, no hot specular
-          parked on the face ── */}
-      <KeyBeam position={[2.6, 5.7, 3]} target={[0, 1.1, 0.4]} intensity={115} color="#ffe9d2" mapSize={1024} angle={0.46} volumetric={0.06} />
-      {/* soft front fill (the "camera light") — low, wide, cool */}
-      <pointLight position={[-0.4, 2.2, 4.2]} color="#e8f0ff" intensity={11} distance={12} />
-      {/* cool rim for the shell and shoulders */}
-      <pointLight position={[-2.4, 2.7, 1]} color="#8fb4ff" intensity={14} distance={10} />
-      {/* studio blue bounce off the console */}
-      <pointLight position={[0, 2.2, -0.6]} color="#3d7ae0" intensity={12} distance={8} />
-      {/* orange desk-light bounce, like the plate */}
-      <pointLight position={[0, 0.9, 1.4]} color={ORANGE} intensity={5} distance={3.5} />
-
       {/* studio haze — dust motes hanging in the key and over the console */}
       <Dust position={[0.8, 2.4, 1.4]} scale={[5.5, 3.6, 3.6]} count={50} opacity={0.18} />
 
@@ -572,8 +582,6 @@ export function NewsAnchorRobot({ position = [1, 0, 0] }: { position?: [number, 
           <planeGeometry args={[1.06, 0.32]} />
           <meshStandardMaterial ref={onAir} map={onAirTex} emissive="#ffffff" emissiveMap={onAirTex} emissiveIntensity={1.25} toneMapped={false} roughness={0.5} />
         </mesh>
-        {/* the sign's red spill on the console below */}
-        <pointLight position={[0, -0.3, 0.3]} color="#ff3040" intensity={3.5} distance={2.6} decay={1.8} />
       </group>
 
       {/* boom mic reaching in from upper stage-left — pole, shockmount and a

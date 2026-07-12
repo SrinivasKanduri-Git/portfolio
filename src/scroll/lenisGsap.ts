@@ -10,7 +10,9 @@ gsap.registerPlugin(ScrollTrigger);
  * camera/HUD animations). Returns a destroy handle.
  */
 export function initSmoothScroll() {
-  const lenis = new Lenis({ smoothWheel: true, lerp: 0.085, wheelMultiplier: 0.9 });
+  // lerp 0.1 (was 0.085): a touch tighter so the page answers the wheel faster;
+  // the camera rig applies its own damping on top, so this stays butter-smooth
+  const lenis = new Lenis({ smoothWheel: true, lerp: 0.1, wheelMultiplier: 0.9 });
 
   const onScroll = () => ScrollTrigger.update();
   lenis.on('scroll', onScroll);

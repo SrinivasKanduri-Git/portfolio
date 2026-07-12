@@ -7,12 +7,19 @@ import {
   LatheGeometry,
   RepeatWrapping,
   SRGBColorSpace,
+  Texture,
   Vector2,
   type Group,
   type Mesh,
   type MeshStandardMaterial,
 } from 'three';
-import { Dust, GlowPlane, KeyBeam, makeBrushedMap, useQuality } from '../cinema';
+import { Dust, GlowPlane, makeBrushedMap, useQuality, useSetActive, useSetLights } from '../cinema';
+
+// handing this to MeshTransmissionMaterial's `buffer` prop while the set is
+// culled makes drei skip its two full-scene FBO renders per frame (it only
+// renders when the buffer is its own internal FBO) — without a material swap,
+// so no mid-scroll shader recompile when the set comes back
+const idleBuffer = new Texture();
 
 const RUBY = '#e0113a';
 const COPPER = '#a8622e';
@@ -138,7 +145,18 @@ function makeKnurlMap(): CanvasTexture {
  */
 export function BugScope({ position = [-2, 0, 0] }: { position?: [number, number, number] }) {
   const quality = useQuality();
+  // warm volumetric key high stage-right, cool fill, red practical — on the
+  // shared stage rig
+  useSetLights(position[0], () => ({
+    key: { position: [2.6, 5.8, 3.4], target: [0, 0.8, 0], intensity: 68, angle: 0.42, volumetric: 0.06 },
+    points: [
+      { position: [-1.6, 2.2, 2.6], color: '#9db8e8', intensity: 8, distance: 11 },
+      // the ruby's own red glow — behind the gem so it can't torch the copper rim
+      { position: [-0.3, 1.44, -0.9], color: RUBY, intensity: 1.1, distance: 3.4, decay: 2 },
+    ],
+  }));
   const full = quality === 'full';
+  const active = useSetActive();
   const scope = useRef<Group>(null);
   const ruby = useRef<Group>(null);
   const reticle = useRef<MeshStandardMaterial>(null);
@@ -183,12 +201,6 @@ export function BugScope({ position = [-2, 0, 0] }: { position?: [number, number
 
   return (
     <group position={position}>
-      {/* unified rig: warm volumetric key high stage-right, cool fill, red practical */}
-      <KeyBeam position={[2.6, 5.8, 3.4]} target={[0, 0.8, 0]} intensity={68} mapSize={1024} angle={0.42} volumetric={0.06} />
-      <pointLight position={[-1.6, 2.2, 2.6]} color="#9db8e8" intensity={8} distance={11} />
-      {/* the ruby's own red glow — behind the gem so it can't torch the copper rim */}
-      <pointLight position={[-0.3, 1.44, -0.9]} color={RUBY} intensity={1.1} distance={3.4} decay={2} />
-
       {/* faint dust catching the key beam — no motes on the stone itself */}
       <Dust position={[0.4, 2.1, 0.8]} scale={[5, 3, 3.5]} count={32} size={1.1} opacity={0.1} />
 
@@ -205,6 +217,7 @@ export function BugScope({ position = [-2, 0, 0] }: { position?: [number, number
         <mesh geometry={gemGeo} castShadow>
           {full ? (
             <MeshTransmissionMaterial
+              buffer={active ? undefined : idleBuffer}
               color={RUBY}
               transmission={1}
               thickness={1.0}

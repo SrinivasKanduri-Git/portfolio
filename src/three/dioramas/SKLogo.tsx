@@ -3,12 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import {
   ExtrudeGeometry,
   MeshPhysicalMaterial,
-  PointLight,
   Shape,
   type Group,
 } from 'three';
 import { innerRingSegments, insetPoly, K_BODY, RING_OUTER, S_BOT, S_TOP, SK, type P2 } from '../../brand/skMark';
-import { Dust, GlowPlane, KeyBeam, makeBrushedMap } from '../cinema';
+import { Dust, GlowPlane, makeBrushedMap, useSetActive, useSetLights } from '../cinema';
 
 // Three fabrication layers per stroke, like a real built sign:
 //   casing — the dark metal channel the tube sits in (slightly outset, behind)
@@ -57,7 +56,6 @@ function strike(t: number): number {
  */
 export function SKLogo({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
   const grp = useRef<Group>(null);
-  const spill = useRef<PointLight>(null);
 
   const { meshes, mats, brushed } = useMemo(() => {
     // matte neon: the tube is self-lit gas, not glossy plastic — no clearcoat,
@@ -124,7 +122,19 @@ export function SKLogo({ position = [0, 0, 0] }: { position?: [number, number, n
     return { meshes, mats, brushed: makeBrushedMap(3) };
   }, []);
 
+  // neon-first plan on the shared stage rig: one dim warm key for shadows
+  // and dust; the rest of the light is the sign itself (spill + fill)
+  const lights = useSetLights(position[0], () => ({
+    key: { position: [2.4, 5.6, 3.2], target: [0, 1.85, 0], intensity: 70, angle: 0.42, volumetric: 0.06 },
+    points: [
+      { position: [2.6, 1.4, 2.2], color: '#9cc8ff', intensity: 6, distance: 10 },
+      // the sign's own blue spill pooling on the stage floor (animated below)
+      { position: [0, 1.4, 1.3], color: '#7f9fff', intensity: 7, distance: 5.5, decay: 1.8 },
+    ],
+  }));
+  const setActive = useSetActive();
   useFrame((state) => {
+    if (!setActive) return;
     const t = state.clock.elapsedTime;
     // rigid presentation: one slow ±2.3° turn — no bob, no tilt, no deformation
     if (grp.current) grp.current.rotation.y = Math.sin(t * 0.3) * 0.04;
@@ -135,7 +145,7 @@ export function SKLogo({ position = [0, 0, 0] }: { position?: [number, number, n
     mats.blueHot.emissiveIntensity = 1.4 * on * (1 + Math.sin(t * 6.1) * 0.05);
     mats.redHot.emissiveIntensity = 1.4 * on * (1 + Math.sin(t * 6.7 + 2) * 0.06);
     // the sign's own light spilling onto the stage floor breathes with it
-    if (spill.current) spill.current.intensity = 7 * on;
+    lights.points[1].intensity = 7 * on;
   });
 
   // the sign hangs clear of the floor: bottom of the backing disc sits at
@@ -144,13 +154,6 @@ export function SKLogo({ position = [0, 0, 0] }: { position?: [number, number, n
 
   return (
     <group position={position}>
-      {/* neon-first lighting: one dim warm key for shadows and dust, the rest
-          of the light is the sign itself (spill + fill) — no gloss rig */}
-      <KeyBeam position={[2.4, 5.6, 3.2]} target={[0, SIGN_Y, 0]} intensity={70} mapSize={1024} angle={0.42} volumetric={0.06} />
-      <pointLight position={[2.6, 1.4, 2.2]} color="#9cc8ff" intensity={6} distance={10} />
-      {/* the sign's own blue/red spill pooling on the stage floor */}
-      <pointLight ref={spill} position={[0, 1.4, 1.3]} color="#7f9fff" intensity={7} distance={5.5} decay={1.8} />
-
       {/* dust hanging in the key beam */}
       <Dust position={[0.6, 2.5, 1]} scale={[5, 3.6, 3]} count={55} opacity={0.18} />
 

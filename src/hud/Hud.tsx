@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { initGuide } from '../guide';
 import { Docucaine } from './Docucaine';
 
@@ -38,7 +38,24 @@ function Slate({ scene, take }: { scene: string; take: string }) {
   );
 }
 
+/** Work slate — distinct from the numbered personal takes. */
+function WorkSlate() {
+  return (
+    <div className="slate slate-work">
+      <span><b>DAY SHIFT</b>FleetEnable</span>
+      <span><b>FIELD UNIT</b>Imaginnovate</span>
+    </div>
+  );
+}
+
 export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSheetOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sheetOpen]);
   useEffect(() => {
     // organic scroll reveals — reliable IO, easing/stagger handled in CSS
     const revealables = document.querySelectorAll<HTMLElement>('.reveal');
@@ -82,7 +99,7 @@ export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
       },
       { rootMargin: '-40% 0px -50% 0px' },
     );
-    ['top', 'sc1', 'sc2', 'sc3', 'credits', 'equipment', 'papers', 'wrap'].forEach((id) => {
+    ['top', 'work', 'sc1', 'sc2', 'sc3', 'credits', 'equipment', 'papers', 'wrap'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) spineIo.observe(el);
     });
@@ -109,6 +126,7 @@ export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
     <>
       <nav className="spine" aria-label="Scenes">
         <a href="#top" title="Cold open"></a>
+        <a href="#work" title="Day shift — FleetEnable"></a>
         <a href="#sc1" title="SC.01 The AI Reporter"></a>
         <a href="#sc2" title="SC.02 RubySkope"></a>
         <a href="#sc3" title="SC.03 Docucaine"></a>
@@ -149,6 +167,31 @@ export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
             <div className="hero-cta">
               <a className="btn" href="#sc1">Roll story</a>
               <a className="btn btn-accent" href="#sc3">Skip to the finale — Docucaine</a>
+            </div>
+          </div>
+        </section>
+
+        {/* ── DAY SHIFT — FLEETENABLE (WORK) ── */}
+        <section className="cinematic scene work" id="work">
+          <div className="scene-panel reveal">
+            <WorkSlate />
+            <div className="scene-copy">
+              <p className="work-credit">Imaginnovate · Feb 2025 – present</p>
+              <h2>Software Engineer I on FleetEnable<span className="status status-work"> · production</span></h2>
+              <p className="lede">
+                A final-mile logistics TMS in production — the Rails + MongoDB + AWS
+                backend behind my day job.
+              </p>
+              <ul className="shotlist">
+                <li><b>Did:</b> backend for warehouse, delivery ops and carrier integrations; RESTful APIs for dispatch teams and external partners; Billing/Invoice and AR reporting.</li>
+                <li><b>Learnt:</b> query optimization and API design that hold up under real production load, shipping in a large team codebase.</li>
+              </ul>
+              <dl className="workstack">
+                <div><dt>Framework</dt><dd>Ruby on Rails</dd></div>
+                <div><dt>Datastore</dt><dd>MongoDB · Mongoid</dd></div>
+                <div><dt>Cloud</dt><dd>AWS</dd></div>
+                <div><dt>Practice</dt><dd>Agile · query optimization</dd></div>
+              </dl>
             </div>
           </div>
         </section>
@@ -326,11 +369,28 @@ export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
               <a className="btn btn-accent" href="mailto:srinivaskanduri03@gmail.com"><svg className="ic"><use href="#i-mail" /></svg> srinivaskanduri03@gmail.com</a>
               <a className="btn" href="tel:+916305689291"><svg className="ic"><use href="#i-phone" /></svg> +91 63056 89291</a>
             </div>
+            <button className="one-sheet reveal" onClick={() => setSheetOpen(true)} aria-haspopup="dialog" aria-label="Preview the résumé">
+              <img src="/resume-preview.webp" alt="Résumé, page one" loading="lazy" />
+              <span className="one-sheet-label">THE ONE-SHEET · résumé</span>
+            </button>
             <div className="wrap-meta">
               <a href={GITHUB} target="_blank" rel="noopener"><svg className="ic"><use href="#i-github" /></svg> GitHub</a>
               <a href={LINKEDIN} target="_blank" rel="noopener"><svg className="ic"><use href="#i-linkedin" /></svg> LinkedIn</a>
             </div>
           </div>
+          {sheetOpen && (
+            <div className="sheet-lightbox" role="dialog" aria-modal="true" aria-label="Résumé preview" onClick={() => setSheetOpen(false)}>
+              <figure onClick={(e) => e.stopPropagation()}>
+                <img src="/resume-preview.webp" alt="Résumé, page one — full view" />
+                <figcaption>
+                  <a className="btn btn-accent" href="/Srinivas_K_Resume.pdf" download="Srinivas_Kanduri_Resume.pdf">
+                    <svg className="ic"><use href="#i-download" /></svg> Download résumé
+                  </a>
+                  <button className="btn" onClick={() => setSheetOpen(false)}>close</button>
+                </figcaption>
+              </figure>
+            </div>
+          )}
         </section>
       </main>
 

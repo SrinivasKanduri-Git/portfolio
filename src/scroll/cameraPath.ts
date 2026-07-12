@@ -12,23 +12,27 @@ type Frame = { pos: Vec3; target: Vec3 };
 // the scroll range its HUD card is on screen, so the subject holds framed
 // beside its copy instead of drifting past it. The monotone-cubic interpolant
 // gives zero velocity across a flat pair, easing into and out of every hold.
-const HERO: Frame = { pos: [  0, 1.8, 7.0], target: [  0, 1.78, 0] };
-const SC1: Frame = { pos: [-13.25, 1.4, 5.9], target: [-13.25, 1.25, 0] };
-const SC2: Frame = { pos: [-26.25, 1.4, 5.2], target: [-26.25, 1.32, 0] };
-const SC3: Frame = { pos: [-39.35, 1.25, 5.4], target: [-39.35, 1.25, 0] };
-// Dwell spans measured against the real DOM: sections start at 100/228/356vh,
-// zone = 384vh, so a section dominates the viewport (covers ≥65%) over
-// p ≈ 0.17–0.43 / 0.50–0.76 / 0.84–1.0 — the camera must be parked on the
-// matching set for that whole span, transitions squeezed between.
+const HERO: Frame = { pos: [  0,    1.8,  7.0], target: [  0,    1.78, 0] };
+const WORK: Frame = { pos: [-13.25, 1.62, 6.7], target: [-13.25, 1.4, 0] };
+const SC1:  Frame = { pos: [-26.25, 1.4,  5.9], target: [-26.25, 1.25, 0] };
+const SC2:  Frame = { pos: [-39.25, 1.4,  5.2], target: [-39.25, 1.32, 0] };
+const SC3:  Frame = { pos: [-52.35, 1.25, 5.4], target: [-52.35, 1.25, 0] };
+// Zone recomputed for 4 scenes: sections start 100/228/356/484vh, cinematic-end
+// 612vh, zone = 612−100 = 512vh. A 128vh section dominates the viewport (≥65%)
+// over p ≈ [(S−35)/512, (S+63)/512]: work 0.13–0.32, sc1 0.38–0.57,
+// sc2 0.63–0.82, sc3 0.88–1.0. Each set is parked (a flat dwell pair) across
+// that span; transitions are squeezed into the gaps.
 const WAYPOINTS: { at: number; frame: Frame }[] = [
   { at: 0.0,  frame: { pos: [0, 1.8, 8.4], target: [0, 1.78, 0] } }, // top — sign framed wide
   { at: 0.05, frame: HERO }, // hero hold
-  { at: 0.12, frame: HERO },
-  { at: 0.18, frame: SC1 }, // SC.01 parked while its card owns the screen
-  { at: 0.43, frame: SC1 },
-  { at: 0.52, frame: SC2 }, // SC.02 parked
-  { at: 0.76, frame: SC2 },
-  { at: 0.85, frame: SC3 }, // SC.03 parked to the end
+  { at: 0.10, frame: HERO },
+  { at: 0.14, frame: WORK }, // FleetEnable parked
+  { at: 0.32, frame: WORK },
+  { at: 0.40, frame: SC1 },  // SC.01 parked
+  { at: 0.57, frame: SC1 },
+  { at: 0.65, frame: SC2 },  // SC.02 parked
+  { at: 0.82, frame: SC2 },
+  { at: 0.90, frame: SC3 },  // SC.03 parked to the end
   { at: 1.0,  frame: SC3 },
 ];
 

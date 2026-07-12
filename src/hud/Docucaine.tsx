@@ -15,9 +15,21 @@ export function Docucaine({ reduceMotion }: { reduceMotion: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   const label = THEMES.find((t) => t.id === theme)!.label;
 
+  // Play only while on screen. An always-playing video decodes frames for the
+  // compositor even fully offscreen — measured as the single biggest scroll
+  // stall on the page (worst frame 1.4s → 145ms with videos parked).
   useEffect(() => {
     const v = video.current;
-    if (v && !reduceMotion) v.play().catch(() => {});
+    if (!v) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting && !reduceMotion) v.play().catch(() => {});
+        else v.pause();
+      },
+      { rootMargin: '160px' },
+    );
+    io.observe(v);
+    return () => io.disconnect();
   }, [theme, reduceMotion]);
 
   return (
@@ -34,10 +46,10 @@ export function Docucaine({ reduceMotion }: { reduceMotion: boolean }) {
           <video
             ref={video}
             key={theme}
-            autoPlay={!reduceMotion}
             muted
             loop
             playsInline
+            preload="metadata"
             poster={`/assets/docucaine/${theme}.jpg`}
             src={`/assets/docucaine/${theme}.mp4`}
           />

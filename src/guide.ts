@@ -17,7 +17,7 @@ const A = (href: string, text: string) =>
 
 const CARDS: Card[] = [
   {
-    keys: ['who', 'about', 'srinivas', 'himself', 'intro', 'summary', 'background'],
+    keys: ['who', 'about him', 'about srinivas', 'srinivas', 'himself', 'intro', 'summary', 'background'],
     title: 'The engineer',
     body:
       'Srinivas Kanduri — backend engineer in Visakhapatnam, India. ~1.5 years of ' +
@@ -124,19 +124,89 @@ const CARDS: Card[] = [
     tags: ['projects', 'skills', 'experience'],
   },
   {
-    keys: ['location', 'where', 'based', 'city', 'india', 'remote', 'relocate'],
+    keys: ['location', 'where', 'based', 'city', 'india'],
     title: 'On location',
     body: 'Visakhapatnam, India. Comfortable working with distributed teams.',
     tags: ['contact', 'experience', 'projects'],
   },
+  {
+    keys: ['story', 'journey', 'started', 'passion', 'why programming', 'origin', 'began', 'into coding'],
+    title: 'Origin story',
+    body:
+      'Programming pulled him in early — the joy of writing logic and brainstorming ' +
+      'through complex problems. That instinct still drives how he builds: understand ' +
+      'the problem deeply, then engineer the cleanest path through it.',
+    tags: ['work style', 'goals', 'projects'],
+  },
+  {
+    keys: ['ai driven', 'ai-driven', 'beyond', 'why ai', 'architect', 'one framework', 'polyglot'],
+    title: 'Beyond one stack',
+    body:
+      'Rails is home base, but AI-assisted engineering removed the fences: he has ' +
+      'shipped applications on Vite, Next.js and Python — stacks he hadn’t formally ' +
+      'worked in — by thinking like an architect and problem-solver first, and a ' +
+      'framework specialist second.',
+    tags: ['skills', 'ai tools', 'goals'],
+  },
+  {
+    keys: ['goal', 'goals', 'future', 'years', 'ambition', 'vision', 'aspiration', 'long term'],
+    title: 'The long arc',
+    body:
+      'Over the next 3–5 years: grow Docucaine from a live product into a ' +
+      'company-grade platform, keep pace with AI as it evolves, and keep raising the ' +
+      'bar on the software he ships.',
+    tags: ['docucaine', 'ai tools', 'work style'],
+  },
+  {
+    keys: ['work style', 'working style', 'culture', 'values', 'personality', 'collaborate', 'team player', 'introvert'],
+    title: 'On set behaviour',
+    body:
+      'A focused, low-noise teammate: plans first, ships a working solution, then ' +
+      'optimizes and scales — no compromise on quality. Colleagues know him as ' +
+      'quietly reliable: heads-down, collaborative when it counts. Daily AI toolkit: ' +
+      'Claude Code for architecture, implementation and debugging, custom Claude ' +
+      'Skills, Cursor, Lovable, Google Stitch and AI Studio.',
+    tags: ['ai tools', 'skills', 'goals'],
+  },
+  {
+    keys: ['hobby', 'hobbies', 'book', 'evidence', 'writer', 'writing', 'film', 'filmmaking', 'screenplay', 'outside', 'fun fact'],
+    title: 'Off set',
+    body:
+      'Writer and filmmaker. He wrote and self-published <em>Evidence</em>, an ' +
+      'investigative thriller, and writes screenplays — he’s currently adapting ' +
+      'Evidence for film. The storytelling instinct shows on this very set: every ' +
+      'project here is staged like a production.',
+    tags: ['projects', 'work style', 'contact'],
+  },
+  {
+    keys: ['notice', 'notice period', 'relocate', 'relocation', 'remote', 'onsite', 'hybrid', 'hyderabad', 'bangalore', 'when can he join'],
+    title: 'Booking the crew',
+    body:
+      'Notice period: 90 days. Remote-first by preference; open to onsite in ' +
+      'Hyderabad (first choice) or Bangalore. For anything else, reach him directly ' +
+      'at ' + A('mailto:srinivaskanduri03@gmail.com', 'srinivaskanduri03@gmail.com') + '.',
+    tags: ['contact', 'experience', 'work style'],
+  },
 ];
+
+/** Reached ONLY via the salary hard rule — never part of intent matching. */
+const SALARY_CARD: Card & { lead?: string } = {
+  keys: [],
+  title: 'Above the line',
+  body:
+    'Compensation is a conversation Srinivas keeps for the negotiating table — ' +
+    'this placard doesn’t quote numbers. Reach him at ' +
+    A('mailto:srinivaskanduri03@gmail.com', 'srinivaskanduri03@gmail.com') +
+    ' and he’ll be glad to discuss.',
+  tags: ['contact', 'experience', 'projects'],
+};
 
 const REFUSAL: Card = {
   keys: [],
   title: 'Off script',
   body:
-    "I'm sorry, I can't help you with that. Would you like to know more about " +
-    "Srinivas' projects or skills?",
+    'That one’s outside my script — I only know Srinivas. Want the projects, ' +
+    'the skills, or how to reach him?',
   tags: ['projects', 'skills', 'contact'],
 };
 
@@ -149,16 +219,99 @@ const OPENER: Card = {
   tags: ['projects', 'skills', 'contact'],
 };
 
-/** Strict matcher: distinctive keywords only, and a minimum score so vague or
- *  off-topic questions fall through to the refusal. */
+// ── tone layer ───────────────────────────────────────────────────────────────
+export type Tone = 'greeting' | 'thanks' | 'rude' | 'goodbye' | 'neutral';
+
+const TONE_RES: [Tone, RegExp][] = [
+  ['rude', /\b(stupid|dumb|suck(s|ed)?|trash|garbage|useless|terrible|worst|hate|crap|bullshit|boring|lame)\b/i],
+  ['greeting', /\b(hi|hii+|hello|hey|yo|howdy|namaste|good\s(morning|afternoon|evening))\b/i],
+  ['thanks', /\b(thanks|thank you|thx|ty|appreciated?)\b/i],
+  ['goodbye', /\b(bye|goodbye|see\s?ya|later|good\s?night)\b/i],
+];
+
+export function detectTone(text: string): Tone {
+  for (const [tone, re] of TONE_RES) if (re.test(text)) return tone;
+  return 'neutral';
+}
+
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+
+const LEADS: Record<Exclude<Tone, 'neutral'>, string[]> = {
+  greeting: ['Hey, welcome to the set!', 'Hello! Glad you dropped by.', 'Hey there — good to see you on set.'],
+  thanks: ['Anytime!', 'Happy to help.', 'My pleasure — that’s what the crew is for.'],
+  rude: ['Fair enough — everyone’s a critic. Still happy to help.', 'Noted! Opinions welcome on this set. What can I show you?'],
+  goodbye: ['Thanks for stopping by the studio.', 'That’s a wrap on this chat — come back anytime.'],
+};
+
+// ── salary hard rule: always deflects, never quotes numbers ──────────────────
+const SALARY_RE = /\b(salary|ctc|compensation|pay|paid|package|remuneration|hike|lpa|earn(s|ing)?)\b/i;
+
+// ── fuzzy matching ───────────────────────────────────────────────────────────
+/** true when a and b are within one edit (insert/delete/replace) — but a bare
+ *  prefix extension ("write" → "writer") is a different word, not a typo. */
+function near(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  if (a.length !== b.length) {
+    const [short, long] = a.length < b.length ? [a, b] : [b, a];
+    if (long.startsWith(short)) return false;
+  }
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (b.length > a.length) j++;
+    else {
+      i++;
+      j++;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+/** Query-side synonyms folded into the text before matching. */
+const SYNONYMS: Record<string, string> = {
+  cv: 'resume',
+  bio: 'about',
+  mail: 'email',
+  ping: 'contact',
+  novel: 'book',
+  author: 'book',
+  movie: 'film',
+  cinema: 'film',
+  joining: 'notice',
+  availability: 'notice',
+  wfh: 'remote',
+  team: 'work style',
+  teammate: 'work style',
+  colleagues: 'work style',
+};
+
+/** Strict matcher: distinctive keywords with a minimum score so vague or
+ *  off-topic questions fall through to the refusal. Single-word keys of 5+
+ *  chars also match within one typo (edit distance ≤ 1). */
 function match(text: string): Card {
-  const q = ' ' + text.toLowerCase().trim() + ' ';
+  let q = ' ' + text.toLowerCase().trim() + ' ';
+  for (const [syn, canon] of Object.entries(SYNONYMS)) {
+    if (new RegExp(`\\b${syn}\\b`).test(q)) q += canon + ' ';
+  }
+  const words = q.split(/[^a-z0-9.-]+/).filter((w) => w.length >= 5);
   let best: Card | null = null;
   let bestScore = 0;
   for (const card of CARDS) {
     let score = 0;
     for (const k of card.keys) {
-      if (q.includes(k)) score += k.length >= 8 ? 5 : k.length >= 5 ? 3 : 2;
+      const hit =
+        q.includes(k) ||
+        (k.length >= 5 && !k.includes(' ') && words.some((w) => near(w, k)));
+      if (hit) score += k.length >= 8 ? 5 : k.length >= 4 ? 3 : 2;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -166,6 +319,24 @@ function match(text: string): Card {
     }
   }
   return bestScore >= 3 && best ? best : REFUSAL;
+}
+
+/**
+ * The full reply pipeline: salary hard rule → tone detection → intent match.
+ * Small talk with no real question gets a tone-matched lead on the opener;
+ * a question with a tone (e.g. "hey! what are his skills?") gets both.
+ */
+export function composeReply(text: string): Card & { lead?: string } {
+  if (SALARY_RE.test(text)) return SALARY_CARD;
+  const tone = detectTone(text);
+  const toneRe = TONE_RES.find(([t]) => t === tone)?.[1];
+  const stripped = toneRe ? text.replace(toneRe, ' ') : text;
+  const hit = match(stripped);
+  const lead = tone !== 'neutral' ? pick(LEADS[tone]) : undefined;
+  if (hit === REFUSAL && tone !== 'neutral') {
+    return { ...OPENER, title: tone === 'rude' ? 'Take it on the chin' : 'Ask the crew', lead };
+  }
+  return { ...hit, lead };
 }
 
 export function initGuide(reduceMotion: boolean): void {
@@ -192,18 +363,20 @@ export function initGuide(reduceMotion: boolean): void {
     }
   }
 
-  /** Replace the placard content — typewriter reveal, then full HTML (links). */
-  function show(c: Card) {
+  /** Replace the placard content — typewriter reveal, then full HTML (links).
+   *  A tone lead (greeting/thanks/…) lands bold ahead of the body. */
+  function show(c: Card & { lead?: string }) {
     window.clearInterval(timer);
     root.classList.add('holding');
     cardTitle.textContent = c.title;
 
+    const html = c.lead ? `<strong>${c.lead}</strong> ${c.body}` : c.body;
     const tmp = document.createElement('div');
-    tmp.innerHTML = c.body;
+    tmp.innerHTML = html;
     const plain = tmp.textContent || '';
 
     if (reduceMotion) {
-      cardBody.innerHTML = c.body;
+      cardBody.innerHTML = html;
       setTags(c.tags);
       return;
     }
@@ -214,7 +387,7 @@ export function initGuide(reduceMotion: boolean): void {
       i += step;
       if (i >= plain.length) {
         window.clearInterval(timer);
-        cardBody.innerHTML = c.body;
+        cardBody.innerHTML = html;
         setTags(c.tags);
       } else {
         cardBody.textContent = plain.slice(0, i);
@@ -224,7 +397,7 @@ export function initGuide(reduceMotion: boolean): void {
 
   function answer(text: string) {
     if (!text.trim()) return;
-    show(match(text));
+    show(composeReply(text));
   }
 
   function open() {

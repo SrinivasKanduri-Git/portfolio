@@ -1,17 +1,72 @@
-import { createContext, useContext, useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { SpotLight as VolumetricSpot, Sparkles } from '@react-three/drei';
 import {
   AdditiveBlending,
   CanvasTexture,
+  Color,
   Object3D,
   RepeatWrapping,
   SRGBColorSpace,
+  type Group,
+  type PointLight as ThreePointLight,
   type SpotLight as ThreeSpotLight,
 } from 'three';
 
 export type Quality = 'full' | 'lite';
 export const QualityCtx = createContext<Quality>('full');
 export const useQuality = () => useContext(QualityCtx);
+
+/** Whether the set this component sits in is near enough to be rendered. */
+export const SetActiveCtx = createContext(true);
+export const useSetActive = () => useContext(SetActiveCtx);
+
+/**
+ * Every mounted SetGroup registers its cull rule here so the Stage's warm-up
+ * can reproduce the exact visibility state of any camera position and
+ * pre-compile the shader permutations culling will create. three.js bakes the
+ * visible light counts into every program, so each cull boundary that changes
+ * the count re-links shaders for the whole visible scene — unless that
+ * permutation was already compiled behind the curtain (measured: 100ms–2.3s
+ * first-ride hitches without the pre-warm).
+ */
+export const setCullRegistry: { x: number; radius: number; group: { current: Group | null } }[] = [];
+if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__cullRegistry = setCullRegistry;
+
+/**
+ * Distance-culls a whole set. Sets sit 13 units apart on X and the stage fog
+ * is fully opaque at 11.5, so any set whose centre is >10.5 units of dolly
+ * travel away is already invisible — but without this it still costs full
+ * price: its shadow-casting key light forces a shadow-map pass every frame,
+ * its lights bloat every fragment shader's light loop (measured on Iris Xe:
+ * 24 live lights ≈ +20ms/frame over the culled 6), and it re-renders again
+ * inside the floor reflector. Toggling `visible` drops the set (and its
+ * lights) out of every render list. The `active` flag is also published via
+ * context so expensive per-frame effects inside (e.g. the gem's transmission
+ * FBO) can pause with it.
+ */
+export function SetGroup({ x, radius = 9, children }: { x: number; radius?: number; children: ReactNode }) {
+  const group = useRef<Group>(null);
+  const [active, setActive] = useState(true);
+  useEffect(() => {
+    const entry = { x, radius, group };
+    setCullRegistry.push(entry);
+    return () => {
+      const i = setCullRegistry.indexOf(entry);
+      if (i !== -1) setCullRegistry.splice(i, 1);
+    };
+  }, [x, radius]);
+  useFrame(({ camera }) => {
+    const near = Math.abs(camera.position.x - x) < radius;
+    if (group.current && group.current.visible !== near) group.current.visible = near;
+    setActive((prev) => (prev === near ? prev : near)); // bails out when unchanged
+  });
+  return (
+    <group ref={group}>
+      <SetActiveCtx.Provider value={active}>{children}</SetActiveCtx.Provider>
+    </group>
+  );
+}
 
 /**
  * The one light plan every set hangs from, so the whole soundstage reads as a
@@ -24,65 +79,195 @@ export const FILL = '#9db8e8'; // cool bounce fill
 export const RIM = '#bfd8ff'; // upstage blue rim
 
 /**
- * A cinema key light: a real shadow-casting spot whose beam is *visible* — a
- * volumetric cone falling through the stage haze (full tier only; lite renders
- * the same light without the cone). One KeyBeam per set, always from high
- * stage-right, keeps the shadows across the whole reel coherent.
+ * ── THE ONE LIGHT RIG ─────────────────────────────────────────────────────
+ * All stage lighting comes from a single always-visible rig — one shadow-
+ * casting key spot (with the volumetric cone), one secondary spot and five
+ * point practicals — that follows the dolly and morphs into each set's light
+ * plan. Sets REGISTER a spec instead of mounting their own lights.
+ *
+ * Why: three.js bakes the visible light COUNTS into every shader program.
+ * With per-set lights, every cull boundary changed the counts and re-linked
+ * the whole visible scene's programs mid-scroll — multi-second freezes on
+ * Mesa/iGPU machines, unfixable by scheduling because link time explodes
+ * under CPU load. With one constant rig the census never changes, every
+ * material compiles exactly once behind the curtain, and scroll-time shader
+ * work is ZERO by construction.
+ *
+ * Parked shots reproduce each set's original plan exactly (weight 1 on the
+ * nearest spec). Transits cross-fade the two nearest specs — the old per-set
+ * rigs popped on/off at the cull radius, deep in the fog; the fade happens in
+ * the same place and reads smoother.
  */
-export function KeyBeam({
-  position,
-  target = [position[0], 0, 0],
-  intensity = 120,
-  color = KEY,
-  mapSize = 1024,
-  angle = 0.5,
-  distance = 26,
-  volumetric = 0.08,
-}: {
+export type RigPoint = {
   position: [number, number, number];
-  target?: [number, number, number];
-  intensity?: number;
+  color: string;
+  intensity: number;
+  distance: number;
+  decay?: number;
+};
+export type RigSpot = {
+  position: [number, number, number];
+  target: [number, number, number];
+  intensity: number;
   color?: string;
-  mapSize?: number;
   angle?: number;
-  distance?: number;
+  /** cone opacity for the key beam (full tier); 0 = light only, no cone */
   volumetric?: number;
-}) {
-  const quality = useQuality();
-  const light = useRef<ThreeSpotLight>(null);
-  const tgt = useRef<Object3D>(null);
+};
+export type RigSpec = { key: RigSpot; spot2?: RigSpot; points: RigPoint[] };
+
+export const rigRegistry: { x: number; spec: RigSpec }[] = [];
+
+/**
+ * Register this set's light plan (positions in set-local coordinates).
+ * Returns the live spec object — mutate its fields from useFrame to animate
+ * practicals (the rig reads it every frame).
+ */
+export function useSetLights(x: number, init: () => RigSpec): RigSpec {
+  const spec = useRef<RigSpec | null>(null);
+  if (!spec.current) spec.current = init();
   useEffect(() => {
-    if (light.current && tgt.current) light.current.target = tgt.current;
-  }, [quality]);
-  const shared = {
-    position,
-    angle,
-    penumbra: 0.85,
-    distance,
-    decay: 1.6,
-    intensity,
-    color,
-  } as const;
+    const entry = { x, spec: spec.current! };
+    rigRegistry.push(entry);
+    return () => {
+      const i = rigRegistry.indexOf(entry);
+      if (i !== -1) rigRegistry.splice(i, 1);
+    };
+  }, [x]);
+  return spec.current;
+}
+
+const POINT_SLOTS = 5;
+const colA = new Color();
+const colB = new Color();
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/** Blend one spot slot between the two nearest sets' specs (world space). */
+function blendSpot(
+  light: ThreeSpotLight | null,
+  tgt: Object3D | null,
+  ax: number,
+  a: RigSpot | undefined,
+  bx: number,
+  b: RigSpot | undefined,
+  t: number,
+) {
+  if (!light || !tgt) return;
+  const ia = a ? a.intensity : 0;
+  const ib = b ? b.intensity : 0;
+  light.intensity = lerp(ia, ib, t);
+  const pa = a ?? b;
+  const pb = b ?? a;
+  if (!pa || !pb) return;
+  light.position.set(
+    lerp(ax + pa.position[0], bx + pb.position[0], t),
+    lerp(pa.position[1], pb.position[1], t),
+    lerp(pa.position[2], pb.position[2], t),
+  );
+  tgt.position.set(
+    lerp(ax + pa.target[0], bx + pb.target[0], t),
+    lerp(pa.target[1], pb.target[1], t),
+    lerp(pa.target[2], pb.target[2], t),
+  );
+  light.angle = lerp(pa.angle ?? 0.5, pb.angle ?? 0.5, t);
+  light.color.copy(colA.set(pa.color ?? KEY).lerp(colB.set(pb.color ?? KEY), t));
+}
+
+/** Blend one point slot; missing slots fade to zero intensity. */
+function blendPoint(
+  light: ThreePointLight | null,
+  ax: number,
+  a: RigPoint | undefined,
+  bx: number,
+  b: RigPoint | undefined,
+  t: number,
+) {
+  if (!light) return;
+  light.intensity = lerp(a ? a.intensity : 0, b ? b.intensity : 0, t);
+  const pa = a ?? b;
+  const pb = b ?? a;
+  if (!pa || !pb) {
+    light.intensity = 0;
+    return;
+  }
+  light.position.set(
+    lerp(ax + pa.position[0], bx + pb.position[0], t),
+    lerp(pa.position[1], pb.position[1], t),
+    lerp(pa.position[2], pb.position[2], t),
+  );
+  light.distance = lerp(pa.distance, pb.distance, t);
+  light.decay = lerp(pa.decay ?? 2, pb.decay ?? 2, t);
+  light.color.copy(colA.set(pa.color).lerp(colB.set(pb.color), t));
+}
+
+/** The rig itself — mounted once at Stage level, never culled. */
+export function StageRig() {
+  const quality = useQuality();
+  const key = useRef<ThreeSpotLight>(null);
+  const keyTgt = useRef<Object3D>(null);
+  const spot2 = useRef<ThreeSpotLight>(null);
+  const spot2Tgt = useRef<Object3D>(null);
+  const points = useRef<(ThreePointLight | null)[]>([]);
+  // the cone's LOOK (opacity) comes from the dominant set and snaps at the
+  // transit midpoint, where the fog has both sets fully hidden; everything
+  // that lights geometry (position/intensity/color/angle) blends per frame
+  const [coneOpacity, setConeOpacity] = useState(0);
+  const dominantX = useRef<number | null>(null);
+  useEffect(() => {
+    if (key.current && keyTgt.current) key.current.target = keyTgt.current;
+    if (spot2.current && spot2Tgt.current) spot2.current.target = spot2Tgt.current;
+  }, [quality, coneOpacity]);
+  useFrame(({ camera }) => {
+    if (!rigRegistry.length) return;
+    const cx = camera.position.x;
+    let A = rigRegistry[0];
+    let B: { x: number; spec: RigSpec } | undefined;
+    for (const r of rigRegistry) {
+      if (Math.abs(cx - r.x) < Math.abs(cx - A.x)) A = r;
+    }
+    for (const r of rigRegistry) {
+      if (r === A) continue;
+      if (!B || Math.abs(cx - r.x) < Math.abs(cx - B.x)) B = r;
+    }
+    // 0 parked on A → 0.5 at the transit midpoint (never crosses 0.5: the
+    // nearest set flips at the midpoint, so t folds back down on the far side)
+    const t = B ? Math.min(Math.abs(cx - A.x) / Math.abs(B.x - A.x), 1) : 0;
+    if (dominantX.current !== A.x) {
+      dominantX.current = A.x;
+      setConeOpacity(A.spec.key.volumetric ?? 0);
+    }
+    blendSpot(key.current, keyTgt.current, A.x, A.spec.key, B?.x ?? 0, B?.spec.key, t);
+    blendSpot(spot2.current, spot2Tgt.current, A.x, A.spec.spot2, B?.x ?? 0, B?.spec.spot2, t);
+    for (let i = 0; i < POINT_SLOTS; i++) {
+      blendPoint(points.current[i] ?? null, A.x, A.spec.points[i], B?.x ?? 0, B?.spec.points[i], t);
+    }
+  });
+  const shared = { penumbra: 0.85, distance: 26, decay: 1.6, intensity: 0 } as const;
   return (
     <>
       {quality === 'full' ? (
         <VolumetricSpot
-          ref={light}
+          ref={key}
           {...shared}
           castShadow
-          shadow-mapSize={[mapSize, mapSize]}
+          shadow-mapSize={[512, 512]}
           shadow-bias={-0.0004}
           shadow-normalBias={0.02}
           // the visible beam: soft-edged cone fading out well before the floor
-          opacity={volumetric}
-          attenuation={Math.max(4, distance * 0.42)}
+          opacity={coneOpacity}
+          attenuation={10.9}
           anglePower={4.5}
           radiusTop={0.35}
         />
       ) : (
-        <spotLight ref={light} {...shared} />
+        <spotLight ref={key} {...shared} />
       )}
-      <object3D ref={tgt} position={target} />
+      <object3D ref={keyTgt} />
+      <spotLight ref={spot2} penumbra={0.9} distance={26} decay={1.6} intensity={0} />
+      <object3D ref={spot2Tgt} />
+      {Array.from({ length: POINT_SLOTS }, (_, i) => (
+        <pointLight key={i} ref={(el) => (points.current[i] = el)} intensity={0} />
+      ))}
     </>
   );
 }

@@ -27,6 +27,8 @@
   --sc1: #ff7a1a; /* SC.01 — the anchor desk's hot orange */
   --sc2: #e0113a; /* SC.02 — ruby */
   --sc3: #7c5cff; /* SC.03 — Docucaine violet */
+  --fe-blue: #586fcc; /* WORK — FleetEnable brand blue */
+  --fe-amber: #ffba07; /* WORK — FleetEnable logo amber */
 
   --ok: #52d273;
   --warn: #e8b45e;
@@ -331,6 +333,44 @@ main { max-width: none; padding: 0; }
 #sc1 { --scene: var(--sc1); }
 #sc2 { --scene: var(--sc2); }
 #sc3 { --scene: var(--sc3); }
+#work { --scene: var(--fe-blue); }
+
+/* work slate reads apart from the numbered personal takes */
+.slate-work b { color: var(--fe-amber); }
+.slate-work { border-color: color-mix(in srgb, var(--fe-blue) 45%, transparent); }
+
+.work-credit {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fe-amber);
+  border: 1px solid color-mix(in srgb, var(--fe-amber) 45%, transparent);
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin-bottom: 12px;
+}
+.status-work { color: var(--fe-blue); }
+
+.work-head {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fe-blue);
+  margin: 12px 0 6px;
+}
+.work-note { font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+
+/* defined tool stack — label + value rows (informative, unlike the chip props) */
+.workstack { display: grid; gap: 6px; margin-top: 4px; }
+.workstack > div { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: baseline; }
+.workstack dt {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fe-amber);
+}
+.workstack dd { font-size: 13px; color: var(--ink); margin: 0; }
 
 .scene .scene-panel {
   border-color: color-mix(in srgb, var(--scene) 30%, transparent);
@@ -720,6 +760,25 @@ main { max-width: none; padding: 0; }
 .wrap-meta a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--dim); text-decoration: none; }
 .wrap-meta a:hover { color: var(--ink); }
 
+/* the one-sheet: film-poster-framed resume preview in the wrap card */
+.one-sheet {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 10px;
+  margin-top: 30px; padding: 14px 14px 12px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px; transition: transform 0.25s ease, border-color 0.25s ease;
+}
+.one-sheet:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.3); }
+.one-sheet img { width: 150px; aspect-ratio: 8.5 / 11; object-fit: cover; display: block; border-radius: 2px; }
+.one-sheet-label { font-family: 'Courier Prime', monospace; font-size: 0.72rem; letter-spacing: 0.14em; color: var(--dim); }
+.sheet-lightbox {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  background: rgba(5, 5, 10, 0.86); backdrop-filter: blur(6px); padding: 24px;
+}
+.sheet-lightbox figure { margin: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.sheet-lightbox img { max-height: min(78vh, 900px); max-width: min(92vw, 660px); border-radius: 4px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6); }
+.sheet-lightbox figcaption { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
 .footer {
   position: relative;
   z-index: 1;
@@ -1087,6 +1146,8 @@ main { max-width: none; padding: 0; }
 
 @media (max-width: 560px) {
   .flat.section { padding-left: 18px; padding-right: 18px; }
+  /* the work slate's two chips can exceed 390px — let them wrap, never the page */
+  .slate { flex-wrap: wrap; gap: 8px 16px; white-space: normal; }
   .prod-line { white-space: normal; letter-spacing: 0.12em; }
   .sheet-head { flex-wrap: wrap; }
   .sheet-head .cell { flex: 1 1 40%; border-bottom: 1px solid var(--hairline); }
