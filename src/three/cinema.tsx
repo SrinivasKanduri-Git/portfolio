@@ -242,7 +242,7 @@ export function StageRig() {
       blendPoint(points.current[i] ?? null, A.x, A.spec.points[i], B?.x ?? 0, B?.spec.points[i], t);
     }
   });
-  const shared = { penumbra: 0.85, distance: 26, decay: 1.6, intensity: 0 } as const;
+  const shared = { penumbra: 0.95, distance: 26, decay: 1.6, intensity: 0 } as const;
   return (
     <>
       {quality === 'full' ? (
@@ -253,11 +253,13 @@ export function StageRig() {
           shadow-mapSize={[512, 512]}
           shadow-bias={-0.0004}
           shadow-normalBias={0.02}
-          // the visible beam: soft-edged cone fading out well before the floor
+          // the visible beam: soft-edged cone fading out well before the floor.
+          // higher anglePower + wider radiusTop give a gentler, more natural
+          // falloff at the beam edge — less of a hard spotlight rim
           opacity={coneOpacity}
           attenuation={10.9}
-          anglePower={4.5}
-          radiusTop={0.35}
+          anglePower={5.5}
+          radiusTop={0.5}
         />
       ) : (
         <spotLight ref={key} {...shared} />

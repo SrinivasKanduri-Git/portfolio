@@ -97,7 +97,7 @@ export function CurtainIntro({ onDone, skip }: { onDone: () => void; skip: boole
     const begin = () => {
       raf = requestAnimationFrame(() => t.play());
     };
-    const timer = window.setTimeout(begin, 1800);
+    const timer = window.setTimeout(begin, 1500);
     const onReady = () => {
       clearTimeout(timer);
       begin();
@@ -108,18 +108,18 @@ export function CurtainIntro({ onDone, skip }: { onDone: () => void; skip: boole
     // up so vector geometry is never re-rasterised per frame; the ring and letters
     // fade in on staggered opacity only — one smooth build, no stutter, no glow
     t.set(markWrap.current, { scale: 0.9, transformOrigin: '50% 50%' })
-      .fromTo(slate.current, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, ease: 'power3.out' })
-      .to(markWrap.current, { scale: 1, duration: 0.9, ease: 'power3.out' }, 0.35)
-      .to(gRing.current, { opacity: 1, duration: 0.7, ease: 'power2.out' }, 0.4)
-      .to(gK.current, { opacity: 1, duration: 0.6, ease: 'power2.out' }, 0.68)
-      .to(gS.current, { opacity: 1, duration: 0.6, ease: 'power2.out' }, 0.82)
-      .to(clap.current, { rotate: -22, duration: 0.14, ease: 'power3.in' }, '+=0.2')
+      .fromTo(slate.current, { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out' })
+      .to(markWrap.current, { scale: 1, duration: 0.7, ease: 'power3.out' }, 0.28)
+      .to(gRing.current, { opacity: 1, duration: 0.55, ease: 'power2.out' }, 0.3)
+      .to(gK.current, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 0.52)
+      .to(gS.current, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 0.64)
+      .to(clap.current, { rotate: -22, duration: 0.13, ease: 'power3.in' }, '+=0.12')
       .to(clap.current, { rotate: 0, duration: 0.09, ease: 'power4.out' })
       .to(slate.current, { scale: 1.03, duration: 0.07, yoyo: true, repeat: 1, ease: 'power1.inOut' }, '<')
-      .to(slate.current, { opacity: 0, scale: 0.985, duration: 0.45, ease: 'power2.inOut' }, '+=0.3')
-      .to(left.current, { xPercent: -100, duration: 1.15, ease: 'power3.inOut' }, '-=0.15')
-      .to(right.current, { xPercent: 100, duration: 1.15, ease: 'power3.inOut' }, '<')
-      .to(root.current, { opacity: 0, duration: 0.45, ease: 'power1.out' }, '-=0.4');
+      .to(slate.current, { opacity: 0, scale: 0.985, duration: 0.38, ease: 'power2.inOut' }, '+=0.15')
+      .to(left.current, { xPercent: -100, duration: 0.95, ease: 'power3.inOut' }, '-=0.12')
+      .to(right.current, { xPercent: 100, duration: 0.95, ease: 'power3.inOut' }, '<')
+      .to(root.current, { opacity: 0, duration: 0.4, ease: 'power1.out' }, '-=0.4');
     return () => {
       window.removeEventListener('stage-first-frame', onReady);
       clearTimeout(timer);

@@ -298,8 +298,10 @@ export function Stage({ children, quality = 'full' }: { children?: ReactNode; qu
         // crisp while freeing ~44% of the raster budget for 90/120Hz scrolling
         dpr={[1, 1.5]}
         // floor for AdaptiveDpr's scroll-time regression: motion hides the
-        // softening, parked frames always return to full res
-        performance={{ min: 0.6 }}
+        // softening, parked frames always return to full res. Held at 0.8 (was
+        // 0.6): 0.6 shed enough resolution mid-scroll that the dioramas read as
+        // pixelated — 0.8 keeps edges crisp while still trimming raster load
+        performance={{ min: 0.8 }}
         camera={{ position: [6, 1.5, 12], fov: 42 }}
         // full tier draws through the EffectComposer, which does its own MSAA —
         // a multisampled default framebuffer there is pure wasted memory/fill
@@ -349,7 +351,7 @@ export function Stage({ children, quality = 'full' }: { children?: ReactNode; qu
             {/* gentle halo only — geometry must stay readable, never white out */}
             <Bloom intensity={0.24} luminanceThreshold={0.92} luminanceSmoothing={0.25} mipmapBlur height={256} />
             {/* fine film grain — kept subtle so it reads as cinema, not dirt */}
-            <Noise premultiply blendFunction={BlendFunction.ADD} opacity={0.12} />
+            <Noise premultiply blendFunction={BlendFunction.ADD} opacity={0.085} />
             <Vignette eskil={false} offset={0.22} darkness={0.92} />
           </EffectComposer>
         )}
