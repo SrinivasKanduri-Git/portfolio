@@ -529,7 +529,17 @@ main { max-width: none; padding: 0; }
 
 /* 2:1 clips, never cropped (source is 1850×925) */
 .doc-view { position: relative; aspect-ratio: 1850 / 925; background: #0b0b16; }
-.doc-view video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.doc-view video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  will-change: opacity;
+}
+.doc-view video.is-on { opacity: 1; }
 
 .doc-themes {
   display: grid;
@@ -1078,6 +1088,7 @@ main { max-width: none; padding: 0; }
   .scene .scene-panel.reveal, .scene .scene-panel.reveal.in { transform: translateY(-50%); }
   .crew-bot .eye, .crew-bot .ant { animation: none; }
   .btn, .doc-theme, .crew-toggle { transition: none; }
+  .doc-view video { transition: none; }
 }
 
 /* ──────────────────────────────────────────────────────── responsive ── */

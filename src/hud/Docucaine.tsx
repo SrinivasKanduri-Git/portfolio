@@ -9,26 +9,52 @@ const THEMES = [
 
 type ThemeId = (typeof THEMES)[number]['id'];
 
-/** The finale's live embed: the real Docucaine hero, one recorded clip per theme. */
+/** The finale's live embed: the real Docucaine hero, one recorded clip per theme.
+ *  All four clips mount at once and cross-fade. The active clip is already
+ *  buffered and decoded, so switching themes plays instantly with no reload
+ *  stall — the previous build remounted a single <video> (key={theme}) which
+ *  refetched from scratch on every switch. */
 export function Docucaine({ reduceMotion }: { reduceMotion: boolean }) {
   const [theme, setTheme] = useState<ThemeId>('starry');
-  const video = useRef<HTMLVideoElement>(null);
+  const videos = useRef<Record<ThemeId, HTMLVideoElement | null>>({
+    starry: null,
+    matrix: null,
+    francis: null,
+    neonarc: null,
+  });
+  const onScreen = useRef(false);
   const label = THEMES.find((t) => t.id === theme)!.label;
 
-  // Play only while on screen. An always-playing video decodes frames for the
-  // compositor even fully offscreen — measured as the single biggest scroll
-  // stall on the page (worst frame 1.4s → 145ms with videos parked).
+  // Drive only the active clip; keep the rest paused (a paused video decodes no
+  // frames). An always-playing offscreen video was the single biggest scroll
+  // stall on the page (worst frame 1.4s → 145ms with videos parked), so pause
+  // everything while the stage is off screen.
   useEffect(() => {
-    const v = video.current;
-    if (!v) return;
+    const stage = videos.current[theme]?.closest('.doc-view');
+    const target = videos.current[theme];
+    if (!stage || !target) return;
+
+    const sync = () => {
+      for (const t of THEMES) {
+        const v = videos.current[t.id];
+        if (!v) continue;
+        if (t.id === theme && onScreen.current && !reduceMotion) {
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      }
+    };
+
     const io = new IntersectionObserver(
       ([e]) => {
-        if (e.isIntersecting && !reduceMotion) v.play().catch(() => {});
-        else v.pause();
+        onScreen.current = e.isIntersecting;
+        sync();
       },
       { rootMargin: '160px' },
     );
-    io.observe(v);
+    io.observe(stage);
+    sync();
     return () => io.disconnect();
   }, [theme, reduceMotion]);
 
@@ -43,16 +69,21 @@ export function Docucaine({ reduceMotion }: { reduceMotion: boolean }) {
           </a>
         </div>
         <div className="doc-view">
-          <video
-            ref={video}
-            key={theme}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            poster={`/assets/docucaine/${theme}.jpg`}
-            src={`/assets/docucaine/${theme}.mp4`}
-          />
+          {THEMES.map((t) => (
+            <video
+              key={t.id}
+              ref={(el) => {
+                videos.current[t.id] = el;
+              }}
+              className={t.id === theme ? 'is-on' : ''}
+              muted
+              loop
+              playsInline
+              preload="auto"
+              poster={`/assets/docucaine/${t.id}.jpg`}
+              src={`/assets/docucaine/${t.id}.mp4`}
+            />
+          ))}
         </div>
       </div>
 
