@@ -20,7 +20,7 @@ const CARDS: Card[] = [
     keys: ['who', 'about him', 'about srinivas', 'srinivas', 'himself', 'intro', 'summary', 'background'],
     title: 'The engineer',
     body:
-      'Srinivas Kanduri — backend engineer in Visakhapatnam, India. ~1.5 years of ' +
+      'Srinivas Kanduri — backend engineer in Visakhapatnam, India. Two years of ' +
       'full-time production work in Ruby on Rails with MongoDB and AWS, plus a ' +
       '3-month internship before that. Builds daily with AI coding agents and owns ' +
       'full product cycles from architecture to deployment.',

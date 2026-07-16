@@ -161,7 +161,7 @@ export function Hud({ reduceMotion }: { reduceMotion: boolean }) {
             <p className="prod-line">PROD. 001 · BACKEND ENGINEER · VISAKHAPATNAM</p>
             <h1 className="hero-name">Srinivas<br />Kanduri</h1>
             <p className="hero-sub">
-              Ruby on Rails, MongoDB and AWS in production by day — ~1.5 years of it.
+              Ruby on Rails, MongoDB and AWS in production by day — two years of it.
               Three self-built platforms after hours, shipped with AI coding agents on the crew.
             </p>
             <div className="hero-cta">
